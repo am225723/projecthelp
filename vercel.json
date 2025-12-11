@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/jobs/run-triage",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/jobs/send-summaries",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

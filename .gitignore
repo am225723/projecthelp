@@ -1,0 +1,52 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+.next/
+out/
+dist/
+
+# Local env files (VERY IMPORTANT)
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Logs
+logs/
+*.log
+logs/*.log
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# OS / Editor junk
+.DS_Store
+*.swp
+*.swo
+*.tmp
+*.temp
+
+# TypeScript
+*.tsbuildinfo
+
+# Supabase local configs
+supabase/.temp/
+supabase/.branches/
+supabase/.log/
+supabase/.migrations/
+supabase/config.toml
+
+# Ignore drafts/emails cache (if created)
+emails_cache/
+drafts_cache/
+
+# Ignore build artifacts
+coverage/
