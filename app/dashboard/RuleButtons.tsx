@@ -53,7 +53,7 @@ export function RuleButtons({ gmailAccountId, fromAddress, subject }: Props) {
 
       setMsg(
         action === "no_draft"
-          ? "Saved: future matches will be triaged, but no draft will be created."
+          ? "Saved: triage still runs, but no draft will be created."
           : "Saved: future matches will be skipped."
       );
     } catch (e) {
@@ -65,46 +65,42 @@ export function RuleButtons({ gmailAccountId, fromAddress, subject }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-2 gap-2">
+    <>
+      <div className="rule-grid">
         <button
-          disabled={!safeFrom || busy === "nodraft_from"}
-          onClick={() => run("nodraft_from", "from", safeFrom, "no_draft")}
-          className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
+          className="rule-btn"
+          disabled={!safeFrom || busy === "nd_from"}
+          onClick={() => run("nd_from", "from", safeFrom, "no_draft")}
         >
-          {busy === "nodraft_from" ? "Saving…" : "No-draft sender"}
+          {busy === "nd_from" ? "Saving…" : "No-draft sender"}
         </button>
 
         <button
-          disabled={!safeSubject || busy === "nodraft_subj"}
-          onClick={() => run("nodraft_subj", "subject_contains", safeSubject, "no_draft")}
-          className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
+          className="rule-btn"
+          disabled={!safeSubject || busy === "nd_subj"}
+          onClick={() => run("nd_subj", "subject_contains", safeSubject, "no_draft")}
         >
-          {busy === "nodraft_subj" ? "Saving…" : "No-draft subject"}
+          {busy === "nd_subj" ? "Saving…" : "No-draft subject"}
         </button>
 
         <button
-          disabled={!safeFrom || busy === "skip_from"}
-          onClick={() => run("skip_from", "from", safeFrom, "skip")}
-          className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
+          className="rule-btn"
+          disabled={!safeFrom || busy === "sk_from"}
+          onClick={() => run("sk_from", "from", safeFrom, "skip")}
         >
-          {busy === "skip_from" ? "Saving…" : "Skip sender"}
+          {busy === "sk_from" ? "Saving…" : "Skip sender"}
         </button>
 
         <button
-          disabled={!safeSubject || busy === "skip_subj"}
-          onClick={() => run("skip_subj", "subject_contains", safeSubject, "skip")}
-          className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
+          className="rule-btn"
+          disabled={!safeSubject || busy === "sk_subj"}
+          onClick={() => run("sk_subj", "subject_contains", safeSubject, "skip")}
         >
-          {busy === "skip_subj" ? "Saving…" : "Skip subject"}
+          {busy === "sk_subj" ? "Saving…" : "Skip subject"}
         </button>
       </div>
 
-      {msg && (
-        <div className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white/70 ring-1 ring-white/10">
-          {msg}
-        </div>
-      )}
-    </div>
+      {msg && <div className="rule-msg">{msg}</div>}
+    </>
   );
 }
