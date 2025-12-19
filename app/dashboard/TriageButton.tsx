@@ -6,7 +6,7 @@ export function TriageButton() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
-  const handleRunTriage = async () => {
+  const run = async () => {
     setLoading(true);
     setStatus(null);
 
@@ -21,15 +21,15 @@ export function TriageButton() {
       const data = await res.json();
 
       if (!res.ok) {
-        setStatus(data?.error ? `Error: ${data.error}` : `Error: HTTP ${res.status}`);
+        setStatus(data?.error ? `Error: ${data.error}` : `Error: ${res.status}`);
         return;
       }
 
       setStatus(
-        `Done — processed ${data.processed ?? 0} email(s) across ${data.accounts ?? 0} account(s).`
+        `Completed: processed ${data.processed ?? 0} email(s) across ${data.accounts ?? 0} inbox(es).`
       );
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
       setStatus("Unexpected error running triage. Check server logs.");
     } finally {
       setLoading(false);
@@ -39,14 +39,18 @@ export function TriageButton() {
   return (
     <div className="flex flex-col items-end gap-2">
       <button
-        type="button"
-        onClick={handleRunTriage}
+        onClick={run}
         disabled={loading}
-        className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/15 hover:bg-white/15 disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-100 disabled:opacity-60"
       >
-        {loading ? "Running triage..." : "Run triage now"}
+        {loading ? "Running…" : "Run triage"}
       </button>
-      {status && <p className="text-xs text-white/70 max-w-sm text-right">{status}</p>}
+
+      {status && (
+        <div className="max-w-sm rounded-xl bg-white/5 px-3 py-2 text-xs text-white/70 ring-1 ring-white/10">
+          {status}
+        </div>
+      )}
     </div>
   );
 }

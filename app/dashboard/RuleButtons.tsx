@@ -8,7 +8,7 @@ type Props = {
   subject: string;
 };
 
-async function postRule(payload: {
+async function createRule(payload: {
   gmail_account_id: string;
   rule_type: "from" | "subject_contains";
   pattern: string;
@@ -19,16 +19,15 @@ async function postRule(payload: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await res.json();
-  return { ok: res.ok, data };
+  return { ok: res.ok, data: await res.json() };
 }
 
 export function RuleButtons({ gmailAccountId, fromAddress, subject }: Props) {
-  const [status, setStatus] = useState<string | null>(null);
-  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  const hasFrom = fromAddress.trim().length > 0;
-  const hasSubject = subject.trim().length > 0;
+  const safeFrom = (fromAddress || "").trim();
+  const safeSubject = (subject || "").trim();
 
   const run = async (
     key: string,
@@ -36,11 +35,11 @@ export function RuleButtons({ gmailAccountId, fromAddress, subject }: Props) {
     pattern: string,
     action: "skip" | "no_draft"
   ) => {
-    setLoadingKey(key);
-    setStatus(null);
+    setBusy(key);
+    setMsg(null);
 
     try {
-      const { ok, data } = await postRule({
+      const { ok, data } = await createRule({
         gmail_account_id: gmailAccountId,
         rule_type,
         pattern,
@@ -48,20 +47,20 @@ export function RuleButtons({ gmailAccountId, fromAddress, subject }: Props) {
       });
 
       if (!ok) {
-        setStatus(data?.error ? `Error: ${data.error}` : "Failed to create rule.");
+        setMsg(data?.error ? `Error: ${data.error}` : "Failed to save rule.");
         return;
       }
 
-      if (action === "skip") {
-        setStatus("Saved: future matches will be skipped completely.");
-      } else {
-        setStatus("Saved: future matches will be triaged, but no draft will be created.");
-      }
+      setMsg(
+        action === "no_draft"
+          ? "Saved: future matches will be triaged, but no draft will be created."
+          : "Saved: future matches will be skipped."
+      );
     } catch (e) {
       console.error(e);
-      setStatus("Unexpected error creating rule.");
+      setMsg("Unexpected error saving rule.");
     } finally {
-      setLoadingKey(null);
+      setBusy(null);
     }
   };
 
@@ -69,41 +68,43 @@ export function RuleButtons({ gmailAccountId, fromAddress, subject }: Props) {
     <div className="flex flex-col gap-2">
       <div className="grid grid-cols-2 gap-2">
         <button
-          disabled={!hasFrom || loadingKey === "skip_from"}
-          onClick={() => run("skip_from", "from", fromAddress.trim(), "skip")}
-          className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/15 disabled:opacity-50"
+          disabled={!safeFrom || busy === "nodraft_from"}
+          onClick={() => run("nodraft_from", "from", safeFrom, "no_draft")}
+          className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
         >
-          Skip sender
+          {busy === "nodraft_from" ? "Saving…" : "No-draft sender"}
         </button>
 
         <button
-          disabled={!hasFrom || loadingKey === "nodraft_from"}
-          onClick={() => run("nodraft_from", "from", fromAddress.trim(), "no_draft")}
-          className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/15 disabled:opacity-50"
+          disabled={!safeSubject || busy === "nodraft_subj"}
+          onClick={() => run("nodraft_subj", "subject_contains", safeSubject, "no_draft")}
+          className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
         >
-          No-draft sender
+          {busy === "nodraft_subj" ? "Saving…" : "No-draft subject"}
         </button>
 
         <button
-          disabled={!hasSubject || loadingKey === "skip_subject"}
-          onClick={() => run("skip_subject", "subject_contains", subject.trim(), "skip")}
-          className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/15 disabled:opacity-50"
+          disabled={!safeFrom || busy === "skip_from"}
+          onClick={() => run("skip_from", "from", safeFrom, "skip")}
+          className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
         >
-          Skip subject
+          {busy === "skip_from" ? "Saving…" : "Skip sender"}
         </button>
 
         <button
-          disabled={!hasSubject || loadingKey === "nodraft_subject"}
-          onClick={() =>
-            run("nodraft_subject", "subject_contains", subject.trim(), "no_draft")
-          }
-          className="rounded-md bg-white/10 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/15 disabled:opacity-50"
+          disabled={!safeSubject || busy === "skip_subj"}
+          onClick={() => run("skip_subj", "subject_contains", safeSubject, "skip")}
+          className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white ring-1 ring-white/10 hover:bg-white/10 disabled:opacity-50"
         >
-          No-draft subject
+          {busy === "skip_subj" ? "Saving…" : "Skip subject"}
         </button>
       </div>
 
-      {status && <div className="text-[11px] text-white/70">{status}</div>}
+      {msg && (
+        <div className="rounded-lg bg-white/5 px-2 py-1 text-[11px] text-white/70 ring-1 ring-white/10">
+          {msg}
+        </div>
+      )}
     </div>
   );
 }

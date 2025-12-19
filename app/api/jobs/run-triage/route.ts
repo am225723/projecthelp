@@ -19,15 +19,13 @@ import { analyzeEmail } from "../../../../lib/openai";
 export const runtime = "nodejs";
 
 const CRON_SECRET = process.env.CRON_SECRET;
-
-// Summary recipient: env wins, otherwise default
 const SUMMARY_RECIPIENT =
   process.env.SUMMARY_RECIPIENT || "support@drzelisko.com";
 
-// Review last 14 days only
+// Only review last 14 days
 const LOOKBACK_DAYS = 14;
 
-// Labels
+// Gmail labels we use internally (NOT shown in summary email)
 const LABELS = {
   NEEDS_REPLY: "AI/NeedsReply",
   NO_REPLY: "AI/NoReply",
@@ -53,13 +51,13 @@ type RunEntry = {
   needs_response: boolean;
   draft_created: boolean;
   summary: string;
-  note?: string;
 };
 
 function matchesRule(rule: TriageRule, fromAddr: string, subject: string) {
   const pattern = rule.pattern.toLowerCase();
   const fromLower = (fromAddr || "").toLowerCase();
   const subjectLower = (subject || "").toLowerCase();
+
   if (rule.rule_type === "from") return fromLower.includes(pattern);
   return subjectLower.includes(pattern);
 }
@@ -94,21 +92,21 @@ async function getAlreadyProcessedMessageIds(gmailAccountId: string) {
 function buildSummaryBody(accountEmail: string, entries: RunEntry[]) {
   const total = entries.length;
   const drafts = entries.filter((e) => e.draft_created).length;
-  const high = entries.filter((e) => e.priority === "high").length;
   const needs = entries.filter((e) => e.needs_response).length;
+  const high = entries.filter((e) => (e.priority || "normal") === "high").length;
 
   const lines: string[] = [];
   lines.push("Dear Support Team,");
   lines.push("");
   lines.push(
-    "Here is a brief summary of your AI email assistant’s activity for the most recent triage run."
+    "Here is a brief summary of the emails that were triaged during the most recent run."
   );
   lines.push("");
-  lines.push(`Account processed: ${accountEmail}`);
+  lines.push(`Inbox: ${accountEmail}`);
   lines.push("");
-  lines.push("High-level overview:");
+  lines.push("Overview:");
   lines.push("");
-  lines.push(`* Total emails reviewed: ${total}`);
+  lines.push(`* Emails reviewed: ${total}`);
   lines.push(`* Emails needing a response: ${needs}`);
   lines.push(`* Drafts created: ${drafts}`);
   lines.push(`* High-priority emails: ${high}`);
@@ -122,10 +120,9 @@ function buildSummaryBody(accountEmail: string, entries: RunEntry[]) {
     lines.push(`Email ${idx + 1}:`);
     lines.push(`  Subject: ${e.subject || "(no subject)"}`);
     lines.push(`  From: ${e.from_address || "(unknown sender)"}`);
-    lines.push(`  Priority: ${e.priority || "normal"}`);
+    lines.push(`  Priority: ${(e.priority || "normal").toLowerCase()}`);
     lines.push(`  Needs Response: ${e.needs_response ? "Yes" : "No"}`);
-    lines.push(`  Draft Status: ${e.draft_created ? "Draft created" : "No draft"}`);
-    if (e.note) lines.push(`  Note: ${e.note}`);
+    lines.push(`  Draft Created: ${e.draft_created ? "Yes" : "No"}`);
     lines.push("  Summary:");
     lines.push(`    ${e.summary || "(no summary provided)"}`);
     lines.push("");
@@ -133,11 +130,6 @@ function buildSummaryBody(accountEmail: string, entries: RunEntry[]) {
     lines.push("");
   });
 
-  lines.push("Next steps:");
-  lines.push("");
-  lines.push("* Review any drafts in Gmail → Drafts.");
-  lines.push("* Edit as needed, then approve/send.");
-  lines.push("");
   lines.push("All the best,");
   lines.push("Your AI Gmail Assistant");
 
@@ -181,11 +173,14 @@ export async function GET(req: NextRequest) {
 
       const signatureHtml = await getGmailSignature(oauth2Client);
 
+      // Ensure labels exist in Gmail (internal use only)
       const labelMap = await ensureLabels(gmail, Object.values(LABELS));
       const processedLabelId = labelMap[LABELS.PROCESSED];
 
+      // DB-backed dedupe: do not process the same email twice
       const processedIds = await getAlreadyProcessedMessageIds(account.id);
 
+      // Load active rules (skip / no_draft)
       const { data: rules, error: rulesError } = await supabaseServer
         .from("triage_rules")
         .select("id, gmail_account_id, rule_type, pattern, action, is_active")
@@ -203,7 +198,7 @@ export async function GET(req: NextRequest) {
         const msgId = msgMeta.id;
         if (!msgId) continue;
 
-        // DEDUPE: if already processed, skip (prevents multiple drafts)
+        // DEDUPE
         if (processedIds.has(msgId)) continue;
 
         const msg = await getMessage(gmail, msgId);
@@ -219,17 +214,18 @@ export async function GET(req: NextRequest) {
 
         const matchedRule = findRule(activeRules, fromAddr, subject);
 
-        // If rule action is SKIP: do not AI triage, do not draft.
+        // Rule: SKIP completely
         if (matchedRule && matchedRule.action === "skip") {
-          const skippedLabelId = labelMap[LABELS.SKIPPED_RULE];
-          if (skippedLabelId) labelsToAdd.push(skippedLabelId);
-
           const noReplyLabelId = labelMap[LABELS.NO_REPLY];
           if (noReplyLabelId) labelsToAdd.push(noReplyLabelId);
 
+          const skippedLabelId = labelMap[LABELS.SKIPPED_RULE];
+          if (skippedLabelId) labelsToAdd.push(skippedLabelId);
+
           await modifyMessageLabels(gmail, msgId, labelsToAdd);
 
-          const summaryText = `Skipped automatically due to rule (${matchedRule.rule_type} contains "${matchedRule.pattern}").`;
+          const summaryText =
+            "This email was skipped due to an inbox rule.";
 
           await supabaseServer
             .from("email_logs")
@@ -249,7 +245,6 @@ export async function GET(req: NextRequest) {
 
           processedIds.add(msgId);
           processedCount += 1;
-
           runEntries.push({
             subject,
             from_address: fromAddr,
@@ -257,21 +252,14 @@ export async function GET(req: NextRequest) {
             needs_response: false,
             draft_created: false,
             summary: summaryText,
-            note: "Skipped by rule",
           });
-
           continue;
         }
 
         // AI triage
         let triage;
         try {
-          triage = await analyzeEmail({
-            from: fromAddr,
-            to: toAddr,
-            subject,
-            body,
-          });
+          triage = await analyzeEmail({ from: fromAddr, to: toAddr, subject, body });
         } catch (err) {
           console.error("AI triage error", err);
 
@@ -281,7 +269,7 @@ export async function GET(req: NextRequest) {
           await modifyMessageLabels(gmail, msgId, labelsToAdd);
 
           const summaryText =
-            "Skipped by AI agent due to AI error (e.g., rate limit or parsing issue).";
+            "This email could not be triaged due to an AI error (for example, rate limits).";
 
           await supabaseServer
             .from("email_logs")
@@ -301,7 +289,6 @@ export async function GET(req: NextRequest) {
 
           processedIds.add(msgId);
           processedCount += 1;
-
           runEntries.push({
             subject,
             from_address: fromAddr,
@@ -309,13 +296,11 @@ export async function GET(req: NextRequest) {
             needs_response: false,
             draft_created: false,
             summary: summaryText,
-            note: "AI error",
           });
-
           continue;
         }
 
-        // Apply needs reply / no reply labels
+        // Labels: needs reply vs no reply
         if (triage.needs_response) {
           const needsReplyLabelId = labelMap[LABELS.NEEDS_REPLY];
           if (needsReplyLabelId) labelsToAdd.push(needsReplyLabelId);
@@ -324,19 +309,21 @@ export async function GET(req: NextRequest) {
           if (noReplyLabelId) labelsToAdd.push(noReplyLabelId);
         }
 
-        // If matched rule action is NO_DRAFT: allow triage + labels, but do not create draft
-        const noDraft =
-          matchedRule && matchedRule.action === "no_draft" ? true : false;
-
-        let draftCreated = false;
-
+        // Rule: NO_DRAFT (triage ok, but don't draft)
+        const noDraft = matchedRule?.action === "no_draft";
         if (noDraft) {
           const noDraftLabelId = labelMap[LABELS.NO_DRAFT_RULE];
           if (noDraftLabelId) labelsToAdd.push(noDraftLabelId);
         }
 
+        let draftCreated = false;
         if (!noDraft && triage.needs_response && triage.draft_reply?.trim()) {
-          await createDraftReply(gmail, msg, triage.draft_reply.trim(), signatureHtml);
+          await createDraftReply(
+            gmail,
+            msg,
+            triage.draft_reply.trim(),
+            signatureHtml
+          );
           draftCreated = true;
 
           const waitingUserLabelId = labelMap[LABELS.WAITING_USER];
@@ -371,18 +358,18 @@ export async function GET(req: NextRequest) {
           needs_response: !!triage.needs_response,
           draft_created: draftCreated,
           summary: triage.summary || "",
-          note: noDraft ? "Draft prevented by rule" : undefined,
         });
       }
 
-      // Auto-send summary email for this run (per account)
-      if (runEntries.length > 0) {
+      // ✅ Only send summary if drafts were created in this run (per account)
+      const createdDrafts = runEntries.filter((e) => e.draft_created).length;
+      if (runEntries.length > 0 && createdDrafts > 0) {
         const summaryBody = buildSummaryBody(account.email, runEntries);
         try {
           await sendEmail(
             gmail,
             SUMMARY_RECIPIENT,
-            "AI inbox summary – latest triage run",
+            "AI inbox summary – drafts created",
             summaryBody
           );
         } catch (err) {
@@ -396,6 +383,7 @@ export async function GET(req: NextRequest) {
       accounts: accounts.length,
       processed: processedCount,
       lookbackDays: LOOKBACK_DAYS,
+      summaryRecipient: SUMMARY_RECIPIENT,
     });
   } catch (err) {
     console.error("Error running triage job", err);
@@ -405,4 +393,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-
