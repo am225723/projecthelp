@@ -4,7 +4,6 @@ import { supabaseServer } from "@/lib/supabase-server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Exclude summary emails from the activity feed
 const SUMMARY_SUBJECT_MARKERS: string[] = ["AI Email Summary", "Inbox Summary"];
 const SUMMARY_FROM_MARKERS: string[] = []; // safest: subject-only
 
@@ -24,16 +23,14 @@ export default async function DashboardPage() {
   const { data, error } = await supabaseServer
     .from("email_logs")
     .select(
-      "id, created_at, subject, from_address, summary, priority, draft_created, gmail_accounts(email)"
+      "id, created_at, gmail_account_id, subject, from_address, summary, priority, draft_created, gmail_accounts(email)"
     )
     .order("created_at", { ascending: false })
-    .limit(300);
+    .limit(400);
 
-  if (error) {
-    console.error("Error loading logs", error);
-  }
+  if (error) console.error("Error loading logs", error);
 
-  const rows = ((data || []) as any[])
+  const rows: ActivityLog[] = ((data || []) as any[])
     .filter((r) => !isSummaryEmail(r.subject, r.from_address))
     .map((r) => {
       const inboxEmail =
@@ -41,9 +38,10 @@ export default async function DashboardPage() {
           ? r.gmail_accounts[0]?.email ?? null
           : r.gmail_accounts?.email ?? null;
 
-      const out: ActivityLog = {
+      return {
         id: String(r.id),
         created_at: String(r.created_at),
+        gmail_account_id: String(r.gmail_account_id),
         inbox_email: inboxEmail,
         subject: r.subject ?? null,
         from_address: r.from_address ?? null,
@@ -51,8 +49,6 @@ export default async function DashboardPage() {
         priority: (r.priority ?? "normal") as any,
         draft_created: r.draft_created ?? null,
       };
-
-      return out;
     });
 
   return (
@@ -60,7 +56,7 @@ export default async function DashboardPage() {
       <header style={{ marginBottom: "1rem" }}>
         <h1 style={{ fontSize: "1.8rem", marginBottom: 6 }}>Inbox Activity</h1>
         <p style={{ color: "#9ca3af", margin: 0 }}>
-          Filter by draft created, priority level, and search text.
+          Filter by date range, whether a draft was created, and priority. Use “Teach agent (future)” to skip future drafts by sender or subject.
         </p>
       </header>
 

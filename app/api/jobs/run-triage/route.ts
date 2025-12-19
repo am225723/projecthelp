@@ -1,395 +1,300 @@
 // app/api/jobs/run-triage/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "../../../../lib/supabase-server";
+import { supabaseServer } from "@/lib/supabase-server";
 import {
+  listAllGmailAccounts,
   getOAuthClientForAccount,
   gmailFromAuth,
   listRecentInboxMessages,
   getMessage,
+  decodeBody,
+  getHeader,
   ensureLabels,
   modifyMessageLabels,
   createDraftReply,
-  decodeBody,
-  getHeader,
   getGmailSignature,
-  sendEmail,
-} from "../../../../lib/gmail";
-import { analyzeEmail } from "../../../../lib/openai";
+} from "@/lib/gmail";
+import { analyzeEmail } from "@/lib/openai";
 
 export const runtime = "nodejs";
 
 const CRON_SECRET = process.env.CRON_SECRET;
-const SUMMARY_RECIPIENT =
-  process.env.SUMMARY_RECIPIENT || "support@drzelisko.com";
 
-// Only review last 14 days
-const LOOKBACK_DAYS = 14;
+const DEFAULT_LOOKBACK_DAYS = 14;
 
-// Gmail labels we use internally (NOT shown in summary email)
-const LABELS = {
-  NEEDS_REPLY: "AI/NeedsReply",
-  NO_REPLY: "AI/NoReply",
-  WAITING_USER: "AI/WaitingUser",
-  SKIPPED_RULE: "AI/SkippedByRule",
-  PROCESSED: "AI/Processed",
-  NO_DRAFT_RULE: "AI/NoDraftRule",
-};
+// Keep your own summaries out of triage
+const SUMMARY_SUBJECT_MARKERS: string[] = [
+  "AI Email Summary",
+  "Inbox Summary",
+  "AI Gmail Agent Summary",
+];
 
-type TriageRule = {
+type AgentRule = {
   id: string;
   gmail_account_id: string;
-  rule_type: "from" | "subject_contains";
+  rule_type: "skip_sender" | "skip_subject";
   pattern: string;
-  action: "skip" | "no_draft";
-  is_active: boolean;
+  is_enabled: boolean;
 };
 
-type RunEntry = {
+function extractEmailAddress(fromHeader: string): string {
+  // e.g. "Name <email@domain.com>" => "email@domain.com"
+  const m = fromHeader.match(/<([^>]+)>/);
+  if (m?.[1]) return m[1].trim().toLowerCase();
+  return fromHeader.trim().toLowerCase();
+}
+
+function shouldSkipBySummarySubject(subject: string) {
+  const s = (subject || "").toLowerCase();
+  return SUMMARY_SUBJECT_MARKERS.some((m) => s.includes(m.toLowerCase()));
+}
+
+function matchRules(params: {
+  fromEmail: string;
   subject: string;
-  from_address: string;
-  priority: string;
-  needs_response: boolean;
-  draft_created: boolean;
-  summary: string;
-};
+  rules: AgentRule[];
+}): { skip: boolean; reason: string } {
+  const from = params.fromEmail.toLowerCase();
+  const subject = (params.subject || "").toLowerCase();
 
-function matchesRule(rule: TriageRule, fromAddr: string, subject: string) {
-  const pattern = rule.pattern.toLowerCase();
-  const fromLower = (fromAddr || "").toLowerCase();
-  const subjectLower = (subject || "").toLowerCase();
+  const enabled = params.rules.filter((r) => r.is_enabled);
 
-  if (rule.rule_type === "from") return fromLower.includes(pattern);
-  return subjectLower.includes(pattern);
-}
-
-function findRule(rules: TriageRule[], fromAddr: string, subject: string) {
-  for (const rule of rules) {
-    if (!rule.is_active) continue;
-    if (matchesRule(rule, fromAddr, subject)) return rule;
+  // Skip sender: exact match on email address
+  const senderRule = enabled.find(
+    (r) => r.rule_type === "skip_sender" && r.pattern.trim().toLowerCase() === from
+  );
+  if (senderRule) {
+    return { skip: true, reason: `Skipped (rule): sender "${from}"` };
   }
-  return null;
+
+  // Skip subject: substring match (case-insensitive)
+  const subjRule = enabled.find(
+    (r) =>
+      r.rule_type === "skip_subject" &&
+      subject.includes(r.pattern.trim().toLowerCase())
+  );
+  if (subjRule) {
+    return {
+      skip: true,
+      reason: `Skipped (rule): subject matched "${subjRule.pattern}"`,
+    };
+  }
+
+  return { skip: false, reason: "" };
 }
 
-async function getAlreadyProcessedMessageIds(gmailAccountId: string) {
+async function getRulesForAccount(gmailAccountId: string): Promise<AgentRule[]> {
   const { data, error } = await supabaseServer
-    .from("email_logs")
-    .select("gmail_message_id")
+    .from("agent_rules")
+    .select("id,gmail_account_id,rule_type,pattern,is_enabled")
     .eq("gmail_account_id", gmailAccountId)
-    .limit(5000);
+    .eq("is_enabled", true);
 
   if (error) {
-    console.error("Error fetching processed ids", error);
-    return new Set<string>();
+    console.error("Failed loading agent rules", error);
+    return [];
   }
 
-  const ids = new Set<string>();
-  for (const row of data || []) {
-    if (row.gmail_message_id) ids.add(row.gmail_message_id);
-  }
-  return ids;
+  return (data || []) as AgentRule[];
 }
 
-function buildSummaryBody(accountEmail: string, entries: RunEntry[]) {
-  const total = entries.length;
-  const drafts = entries.filter((e) => e.draft_created).length;
-  const needs = entries.filter((e) => e.needs_response).length;
-  const high = entries.filter((e) => (e.priority || "normal") === "high").length;
+async function alreadyProcessed(gmailAccountId: string, gmailMessageId: string) {
+  const { data, error } = await supabaseServer
+    .from("email_logs")
+    .select("id")
+    .eq("gmail_account_id", gmailAccountId)
+    .eq("gmail_message_id", gmailMessageId)
+    .limit(1);
 
-  const lines: string[] = [];
-  lines.push("Dear Support Team,");
-  lines.push("");
-  lines.push(
-    "Here is a brief summary of the emails that were triaged during the most recent run."
-  );
-  lines.push("");
-  lines.push(`Inbox: ${accountEmail}`);
-  lines.push("");
-  lines.push("Overview:");
-  lines.push("");
-  lines.push(`* Emails reviewed: ${total}`);
-  lines.push(`* Emails needing a response: ${needs}`);
-  lines.push(`* Drafts created: ${drafts}`);
-  lines.push(`* High-priority emails: ${high}`);
-  lines.push("");
-  lines.push("Details:");
-  lines.push("");
-  lines.push("------------------------------------------------------------");
-  lines.push("");
+  if (error) {
+    // If query fails, be conservative and don’t create drafts
+    console.error("Failed checking duplicates", error);
+    return true;
+  }
 
-  entries.forEach((e, idx) => {
-    lines.push(`Email ${idx + 1}:`);
-    lines.push(`  Subject: ${e.subject || "(no subject)"}`);
-    lines.push(`  From: ${e.from_address || "(unknown sender)"}`);
-    lines.push(`  Priority: ${(e.priority || "normal").toLowerCase()}`);
-    lines.push(`  Needs Response: ${e.needs_response ? "Yes" : "No"}`);
-    lines.push(`  Draft Created: ${e.draft_created ? "Yes" : "No"}`);
-    lines.push("  Summary:");
-    lines.push(`    ${e.summary || "(no summary provided)"}`);
-    lines.push("");
-    lines.push("------------------------------------------------------------");
-    lines.push("");
-  });
-
-  lines.push("All the best,");
-  lines.push("Your AI Gmail Assistant");
-
-  return lines.join("\n");
+  return (data || []).length > 0;
 }
 
 export async function GET(req: NextRequest) {
-  if (!CRON_SECRET) {
-    return NextResponse.json(
-      { error: "CRON_SECRET is not configured" },
-      { status: 500 }
-    );
-  }
-
+  // Optional: allow manual runs without CRON_SECRET in local dev
   const authHeader = req.headers.get("authorization") || "";
   const token = authHeader.startsWith("Bearer ")
     ? authHeader.slice("Bearer ".length)
-    : null;
+    : "";
 
-  if (token !== CRON_SECRET) {
+  if (CRON_SECRET && token !== CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // lookbackDays param (defaults 14)
+  const url = new URL(req.url);
+  const lookbackDays =
+    Number(url.searchParams.get("lookbackDays")) || DEFAULT_LOOKBACK_DAYS;
+
   try {
-    const { data: accounts, error: accountsError } = await supabaseServer
-      .from("gmail_accounts")
-      .select("*")
-      .order("updated_at", { ascending: false });
-
-    if (accountsError) throw accountsError;
-
-    if (!accounts || accounts.length === 0) {
+    const accounts = await listAllGmailAccounts();
+    if (!accounts.length) {
       return NextResponse.json({ ok: true, accounts: 0, processed: 0 });
     }
 
-    let processedCount = 0;
+    let processed = 0;
+    let draftsCreated = 0;
+    let skippedByRule = 0;
+    let skippedDuplicate = 0;
 
     for (const account of accounts) {
       const { oauth2Client } = await getOAuthClientForAccount(account.id);
       const gmail = gmailFromAuth(oauth2Client);
 
+      // Load rules once per account
+      const rules = await getRulesForAccount(account.id);
+
+      // Pull signature once per account (HTML signature)
       const signatureHtml = await getGmailSignature(oauth2Client);
 
-      // Ensure labels exist in Gmail (internal use only)
-      const labelMap = await ensureLabels(gmail, Object.values(LABELS));
-      const processedLabelId = labelMap[LABELS.PROCESSED];
+      // Load messages
+      const msgs = await listRecentInboxMessages(gmail, lookbackDays);
 
-      // DB-backed dedupe: do not process the same email twice
-      const processedIds = await getAlreadyProcessedMessageIds(account.id);
+      if (!msgs.length) continue;
 
-      // Load active rules (skip / no_draft)
-      const { data: rules, error: rulesError } = await supabaseServer
-        .from("triage_rules")
-        .select("id, gmail_account_id, rule_type, pattern, action, is_active")
-        .eq("gmail_account_id", account.id)
-        .eq("is_active", true);
+      // Ensure labels exist (optional)
+      const labelNames = ["ai/triaged", "ai/draft_created", "ai/no_draft"];
+      const nameToId = await ensureLabels(gmail, labelNames);
 
-      if (rulesError) console.error("Error loading triage_rules", rulesError);
-      const activeRules: TriageRule[] = (rules || []) as TriageRule[];
+      for (const m of msgs) {
+        if (!m.id) continue;
 
-      const msgs = await listRecentInboxMessages(gmail, LOOKBACK_DAYS);
+        // ✅ Hard duplicate prevention: if it’s already in email_logs, skip
+        const dup = await alreadyProcessed(account.id, m.id);
+        if (dup) {
+          skippedDuplicate += 1;
+          continue;
+        }
 
-      const runEntries: RunEntry[] = [];
-
-      for (const msgMeta of msgs || []) {
-        const msgId = msgMeta.id;
-        if (!msgId) continue;
-
-        // DEDUPE
-        if (processedIds.has(msgId)) continue;
-
-        const msg = await getMessage(gmail, msgId);
-        const headers = msg.payload?.headers ?? [];
+        const full = await getMessage(gmail, m.id);
+        const headers = full.payload?.headers || [];
 
         const subject = getHeader(headers, "Subject", "(no subject)");
-        const fromAddr = getHeader(headers, "From", "");
-        const toAddr = getHeader(headers, "To", "");
-        const body = decodeBody(msg);
+        const fromHeader = getHeader(headers, "From", "");
+        const fromEmail = extractEmailAddress(fromHeader);
 
-        const labelsToAdd: string[] = [];
-        if (processedLabelId) labelsToAdd.push(processedLabelId);
-
-        const matchedRule = findRule(activeRules, fromAddr, subject);
-
-        // Rule: SKIP completely
-        if (matchedRule && matchedRule.action === "skip") {
-          const noReplyLabelId = labelMap[LABELS.NO_REPLY];
-          if (noReplyLabelId) labelsToAdd.push(noReplyLabelId);
-
-          const skippedLabelId = labelMap[LABELS.SKIPPED_RULE];
-          if (skippedLabelId) labelsToAdd.push(skippedLabelId);
-
-          await modifyMessageLabels(gmail, msgId, labelsToAdd);
-
-          const summaryText =
-            "This email was skipped due to an inbox rule.";
-
-          await supabaseServer
-            .from("email_logs")
-            .upsert(
-              {
-                gmail_account_id: account.id,
-                gmail_message_id: msgId,
-                subject,
-                from_address: fromAddr,
-                summary: summaryText,
-                needs_response: false,
-                priority: "low",
-                draft_created: false,
-              },
-              { onConflict: "gmail_account_id,gmail_message_id" }
-            );
-
-          processedIds.add(msgId);
-          processedCount += 1;
-          runEntries.push({
+        // ✅ Keep summary emails out of triage
+        if (shouldSkipBySummarySubject(subject)) {
+          // Still log as processed to prevent repeated scanning
+          await supabaseServer.from("email_logs").insert({
+            gmail_account_id: account.id,
+            gmail_message_id: m.id,
             subject,
-            from_address: fromAddr,
+            from_address: fromHeader,
+            summary: "Skipped: summary email (excluded from triage).",
+            needs_response: false,
             priority: "low",
-            needs_response: false,
             draft_created: false,
-            summary: summaryText,
           });
           continue;
         }
 
-        // AI triage
-        let triage;
-        try {
-          triage = await analyzeEmail({ from: fromAddr, to: toAddr, subject, body });
-        } catch (err) {
-          console.error("AI triage error", err);
+        // ✅ Apply rules
+        const ruleResult = matchRules({ fromEmail, subject, rules });
+        if (ruleResult.skip) {
+          skippedByRule += 1;
 
-          const noReplyLabelId = labelMap[LABELS.NO_REPLY];
-          if (noReplyLabelId) labelsToAdd.push(noReplyLabelId);
-
-          await modifyMessageLabels(gmail, msgId, labelsToAdd);
-
-          const summaryText =
-            "This email could not be triaged due to an AI error (for example, rate limits).";
-
-          await supabaseServer
-            .from("email_logs")
-            .upsert(
-              {
-                gmail_account_id: account.id,
-                gmail_message_id: msgId,
-                subject,
-                from_address: fromAddr,
-                summary: summaryText,
-                needs_response: false,
-                priority: "normal",
-                draft_created: false,
-              },
-              { onConflict: "gmail_account_id,gmail_message_id" }
-            );
-
-          processedIds.add(msgId);
-          processedCount += 1;
-          runEntries.push({
+          await supabaseServer.from("email_logs").insert({
+            gmail_account_id: account.id,
+            gmail_message_id: m.id,
             subject,
-            from_address: fromAddr,
-            priority: "normal",
+            from_address: fromHeader,
+            summary: ruleResult.reason,
             needs_response: false,
+            priority: "low",
             draft_created: false,
-            summary: summaryText,
           });
+
+          // Label it so Gmail reflects it
+          const add = [nameToId["ai/triaged"], nameToId["ai/no_draft"]].filter(
+            Boolean
+          ) as string[];
+          if (add.length) await modifyMessageLabels(gmail, m.id, add);
+
+          processed += 1;
           continue;
         }
 
-        // Labels: needs reply vs no reply
-        if (triage.needs_response) {
-          const needsReplyLabelId = labelMap[LABELS.NEEDS_REPLY];
-          if (needsReplyLabelId) labelsToAdd.push(needsReplyLabelId);
-        } else {
-          const noReplyLabelId = labelMap[LABELS.NO_REPLY];
-          if (noReplyLabelId) labelsToAdd.push(noReplyLabelId);
-        }
-
-        // Rule: NO_DRAFT (triage ok, but don't draft)
-        const noDraft = matchedRule?.action === "no_draft";
-        if (noDraft) {
-          const noDraftLabelId = labelMap[LABELS.NO_DRAFT_RULE];
-          if (noDraftLabelId) labelsToAdd.push(noDraftLabelId);
-        }
-
-        let draftCreated = false;
-        if (!noDraft && triage.needs_response && triage.draft_reply?.trim()) {
-          await createDraftReply(
-            gmail,
-            msg,
-            triage.draft_reply.trim(),
-            signatureHtml
-          );
-          draftCreated = true;
-
-          const waitingUserLabelId = labelMap[LABELS.WAITING_USER];
-          if (waitingUserLabelId) labelsToAdd.push(waitingUserLabelId);
-        }
-
-        await modifyMessageLabels(gmail, msgId, labelsToAdd);
-
-        await supabaseServer
-          .from("email_logs")
-          .upsert(
-            {
-              gmail_account_id: account.id,
-              gmail_message_id: msgId,
-              subject,
-              from_address: fromAddr,
-              summary: triage.summary || "",
-              needs_response: !!triage.needs_response,
-              priority: triage.priority || "normal",
-              draft_created: draftCreated,
-            },
-            { onConflict: "gmail_account_id,gmail_message_id" }
-          );
-
-        processedIds.add(msgId);
-        processedCount += 1;
-
-        runEntries.push({
+        // Analyze email with AI
+        const body = decodeBody(full) || "";
+        const triage = await analyzeEmail({
+          from: fromHeader,
+          to: account.email || "",
           subject,
-          from_address: fromAddr,
-          priority: triage.priority || "normal",
-          needs_response: !!triage.needs_response,
-          draft_created: draftCreated,
-          summary: triage.summary || "",
+          body,
         });
-      }
 
-      // ✅ Only send summary if drafts were created in this run (per account)
-      const createdDrafts = runEntries.filter((e) => e.draft_created).length;
-      if (runEntries.length > 0 && createdDrafts > 0) {
-        const summaryBody = buildSummaryBody(account.email, runEntries);
-        try {
-          await sendEmail(
-            gmail,
-            SUMMARY_RECIPIENT,
-            "AI inbox summary – drafts created",
-            summaryBody
-          );
-        } catch (err) {
-          console.error("Error sending summary email", err);
+        // Apply labels in Gmail
+        const proposed = (triage.proposed_labels || []).slice(0, 4);
+        const labelNamesForEmail = ["ai/triaged", ...proposed];
+        const labelMap = await ensureLabels(gmail, labelNamesForEmail);
+        const labelIds = Object.values(labelMap);
+
+        // Determine if we create a draft
+        let draftCreated = false;
+
+        // If AI says no response needed, no draft
+        if (triage.needs_response && triage.draft_reply?.trim()) {
+          // Append signature (HTML) — keep draft as plaintext + HTML signature block
+          // NOTE: Gmail drafts support raw RFC822; simplest is to include signature HTML as-is at bottom.
+          const replyText = `${triage.draft_reply}\n\n${signatureHtml || ""}`;
+
+          try {
+            await createDraftReply(gmail, full, replyText);
+            draftCreated = true;
+            draftsCreated += 1;
+          } catch (e) {
+            console.error("Failed creating draft", e);
+            draftCreated = false;
+          }
         }
+
+        // Write log (this is what also prevents duplicates on next run)
+        await supabaseServer.from("email_logs").insert({
+          gmail_account_id: account.id,
+          gmail_message_id: m.id,
+          subject,
+          from_address: fromHeader,
+          summary: triage.summary || "",
+          needs_response: !!triage.needs_response,
+          priority: triage.priority || "normal",
+          draft_created: draftCreated,
+        });
+
+        // Add Gmail labels
+        const addLabels = [
+          ...labelIds,
+          draftCreated ? nameToId["ai/draft_created"] : nameToId["ai/no_draft"],
+        ].filter(Boolean) as string[];
+
+        if (addLabels.length) {
+          try {
+            await modifyMessageLabels(gmail, m.id, addLabels);
+          } catch (e) {
+            console.error("Failed modifying labels", e);
+          }
+        }
+
+        processed += 1;
       }
     }
 
     return NextResponse.json({
       ok: true,
+      lookbackDays,
       accounts: accounts.length,
-      processed: processedCount,
-      lookbackDays: LOOKBACK_DAYS,
-      summaryRecipient: SUMMARY_RECIPIENT,
+      processed,
+      draftsCreated,
+      skippedByRule,
+      skippedDuplicate,
     });
   } catch (err) {
     console.error("Error running triage job", err);
-    return NextResponse.json(
-      { error: "Internal error running triage job" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

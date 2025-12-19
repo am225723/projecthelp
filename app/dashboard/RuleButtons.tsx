@@ -2,105 +2,88 @@
 
 import { useState } from "react";
 
-type Props = {
+export function RuleButtons({
+  gmailAccountId,
+  fromAddress,
+  subject,
+}: {
   gmailAccountId: string;
   fromAddress: string;
   subject: string;
-};
-
-async function createRule(payload: {
-  gmail_account_id: string;
-  rule_type: "from" | "subject_contains";
-  pattern: string;
-  action: "skip" | "no_draft";
 }) {
-  const res = await fetch("/api/rules", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return { ok: res.ok, data: await res.json() };
-}
+  const [saving, setSaving] = useState<null | "sender" | "subject">(null);
+  const [done, setDone] = useState<string>("");
 
-export function RuleButtons({ gmailAccountId, fromAddress, subject }: Props) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const safeFrom = (fromAddress || "").trim();
-  const safeSubject = (subject || "").trim();
-
-  const run = async (
-    key: string,
-    rule_type: "from" | "subject_contains",
-    pattern: string,
-    action: "skip" | "no_draft"
-  ) => {
-    setBusy(key);
-    setMsg(null);
+  async function createRule(type: "skip_sender" | "skip_subject", pattern: string) {
+    setDone("");
+    setSaving(type === "skip_sender" ? "sender" : "subject");
 
     try {
-      const { ok, data } = await createRule({
-        gmail_account_id: gmailAccountId,
-        rule_type,
-        pattern,
-        action,
+      const res = await fetch("/api/rules", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          gmailAccountId,
+          type,
+          pattern,
+        }),
       });
 
-      if (!ok) {
-        setMsg(data?.error ? `Error: ${data.error}` : "Failed to save rule.");
-        return;
-      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.details || data?.error || "Failed");
 
-      setMsg(
-        action === "no_draft"
-          ? "Saved: triage still runs, but no draft will be created."
-          : "Saved: future matches will be skipped."
-      );
-    } catch (e) {
-      console.error(e);
-      setMsg("Unexpected error saving rule.");
+      setDone(type === "skip_sender" ? "Sender skipped ✅" : "Subject skipped ✅");
+    } catch (e: any) {
+      setDone(`Error: ${e?.message || "Failed"}`);
     } finally {
-      setBusy(null);
+      setSaving(null);
+      setTimeout(() => setDone(""), 3500);
     }
-  };
+  }
 
   return (
-    <>
-      <div className="rule-grid">
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button
-          className="rule-btn"
-          disabled={!safeFrom || busy === "nd_from"}
-          onClick={() => run("nd_from", "from", safeFrom, "no_draft")}
+          onClick={() => createRule("skip_sender", fromAddress)}
+          disabled={!fromAddress || saving !== null}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid rgba(148,163,184,0.25)",
+            background: "rgba(255,255,255,0.04)",
+            color: "rgba(226,232,240,0.95)",
+            cursor: saving ? "not-allowed" : "pointer",
+            fontSize: "0.85rem",
+          }}
+          title="Future: do not draft replies to this sender"
         >
-          {busy === "nd_from" ? "Saving…" : "No-draft sender"}
+          {saving === "sender" ? "Saving…" : "Skip sender"}
         </button>
 
         <button
-          className="rule-btn"
-          disabled={!safeSubject || busy === "nd_subj"}
-          onClick={() => run("nd_subj", "subject_contains", safeSubject, "no_draft")}
+          onClick={() => createRule("skip_subject", subject)}
+          disabled={!subject || saving !== null}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid rgba(148,163,184,0.25)",
+            background: "rgba(255,255,255,0.04)",
+            color: "rgba(226,232,240,0.95)",
+            cursor: saving ? "not-allowed" : "pointer",
+            fontSize: "0.85rem",
+          }}
+          title="Future: do not draft replies for this subject"
         >
-          {busy === "nd_subj" ? "Saving…" : "No-draft subject"}
-        </button>
-
-        <button
-          className="rule-btn"
-          disabled={!safeFrom || busy === "sk_from"}
-          onClick={() => run("sk_from", "from", safeFrom, "skip")}
-        >
-          {busy === "sk_from" ? "Saving…" : "Skip sender"}
-        </button>
-
-        <button
-          className="rule-btn"
-          disabled={!safeSubject || busy === "sk_subj"}
-          onClick={() => run("sk_subj", "subject_contains", safeSubject, "skip")}
-        >
-          {busy === "sk_subj" ? "Saving…" : "Skip subject"}
+          {saving === "subject" ? "Saving…" : "Skip subject"}
         </button>
       </div>
 
-      {msg && <div className="rule-msg">{msg}</div>}
-    </>
+      {done ? (
+        <div style={{ color: "rgba(226,232,240,0.8)", fontSize: "0.8rem" }}>
+          {done}
+        </div>
+      ) : null}
+    </div>
   );
 }

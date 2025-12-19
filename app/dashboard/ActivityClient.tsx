@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { RuleButtons } from "./RuleButtons";
 
 type Priority = "low" | "normal" | "high" | null;
 
 export type ActivityLog = {
   id: string;
   created_at: string;
+  gmail_account_id: string;
   inbox_email: string | null;
   subject: string | null;
   from_address: string | null;
@@ -17,6 +19,7 @@ export type ActivityLog = {
 
 type DraftFilter = "all" | "drafted" | "not_drafted";
 type PriorityFilter = "all" | "high" | "normal" | "low";
+type RangeFilter = "24h" | "7d" | "14d" | "30d" | "all";
 
 function pillStyle(bg: string, border: string, color: string) {
   return {
@@ -31,15 +34,34 @@ function pillStyle(bg: string, border: string, color: string) {
   };
 }
 
+function rangeCutoff(range: RangeFilter): number | null {
+  const now = Date.now();
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+
+  if (range === "24h") return now - 24 * hour;
+  if (range === "7d") return now - 7 * day;
+  if (range === "14d") return now - 14 * day;
+  if (range === "30d") return now - 30 * day;
+  return null;
+}
+
 export default function ActivityClient({ logs }: { logs: ActivityLog[] }) {
   const [draft, setDraft] = useState<DraftFilter>("all");
   const [priority, setPriority] = useState<PriorityFilter>("all");
+  const [range, setRange] = useState<RangeFilter>("14d");
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const cutoff = rangeCutoff(range);
 
     return logs.filter((l) => {
+      if (cutoff) {
+        const t = new Date(l.created_at).getTime();
+        if (Number.isFinite(t) && t < cutoff) return false;
+      }
+
       if (draft === "drafted" && !l.draft_created) return false;
       if (draft === "not_drafted" && l.draft_created) return false;
 
@@ -60,14 +82,20 @@ export default function ActivityClient({ logs }: { logs: ActivityLog[] }) {
 
       return true;
     });
-  }, [logs, draft, priority, query]);
+  }, [logs, draft, priority, range, query]);
 
   const stats = useMemo(() => {
-    const total = logs.length;
-    const drafted = logs.filter((l) => l.draft_created).length;
-    const high = logs.filter((l) => (l.priority || "normal") === "high").length;
-    return { total, drafted, high };
-  }, [logs]);
+    const cutoff = rangeCutoff(range);
+    const scoped = cutoff
+      ? logs.filter((l) => new Date(l.created_at).getTime() >= cutoff)
+      : logs;
+
+    return {
+      total: scoped.length,
+      drafted: scoped.filter((l) => l.draft_created).length,
+      high: scoped.filter((l) => (l.priority || "normal") === "high").length,
+    };
+  }, [logs, range]);
 
   return (
     <section
@@ -103,6 +131,25 @@ export default function ActivityClient({ logs }: { logs: ActivityLog[] }) {
         </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <select
+            value={range}
+            onChange={(e) => setRange(e.target.value as RangeFilter)}
+            style={{
+              padding: "10px 12px",
+              borderRadius: "0.65rem",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(148,163,184,0.25)",
+              color: "rgba(226,232,240,0.95)",
+              outline: "none",
+            }}
+          >
+            <option value="24h">Range: Last 24 hours</option>
+            <option value="7d">Range: Last 7 days</option>
+            <option value="14d">Range: Last 14 days</option>
+            <option value="30d">Range: Last 30 days</option>
+            <option value="all">Range: All</option>
+          </select>
+
           <select
             value={draft}
             onChange={(e) => setDraft(e.target.value as DraftFilter)}
@@ -173,8 +220,10 @@ export default function ActivityClient({ logs }: { logs: ActivityLog[] }) {
                 <th align="center" style={{ padding: "10px 12px" }}>Priority</th>
                 <th align="center" style={{ padding: "10px 12px" }}>Draft</th>
                 <th align="left" style={{ padding: "10px 12px" }}>Summary</th>
+                <th align="left" style={{ padding: "10px 12px" }}>Teach agent (future)</th>
               </tr>
             </thead>
+
             <tbody>
               {filtered.map((log) => {
                 const p = (log.priority || "normal").toLowerCase();
@@ -207,6 +256,14 @@ export default function ActivityClient({ logs }: { logs: ActivityLog[] }) {
                       <span style={{ whiteSpace: "pre-wrap", display: "inline-block" }}>
                         {log.summary ?? ""}
                       </span>
+                    </td>
+
+                    <td style={{ padding: "10px 12px", minWidth: 220 }}>
+                      <RuleButtons
+                        gmailAccountId={log.gmail_account_id}
+                        fromAddress={log.from_address ?? ""}
+                        subject={log.subject ?? ""}
+                      />
                     </td>
                   </tr>
                 );
