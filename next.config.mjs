@@ -1,15 +1,9 @@
+// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // IMPORTANT: do NOT use `output: "export"` for this app
+  // (Dashboard + API routes need a server runtime)
+  reactStrictMode: true,
 };
 
 export default nextConfig;
