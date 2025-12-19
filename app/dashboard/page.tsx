@@ -23,7 +23,9 @@ type LogRow = {
   needs_response: boolean | null;
   priority: string | null;
   draft_created: boolean | null;
-  gmail_accounts?: { email: string | null } | null;
+
+  // Supabase relation select returns an ARRAY by default
+  gmail_accounts?: { email: string | null }[] | null;
 };
 
 async function getAccounts(): Promise<GmailAccountRow[]> {
@@ -52,7 +54,8 @@ async function getLogs(): Promise<LogRow[]> {
     console.error("Error loading logs", error);
     return [];
   }
-  return data as LogRow[];
+
+  return (data || []) as unknown as LogRow[];
 }
 
 function priorityClass(p?: string | null) {
@@ -72,6 +75,9 @@ export default async function DashboardPage() {
     needs: logs.filter((l) => l.needs_response).length,
     high: logs.filter((l) => (l.priority || "normal") === "high").length,
   };
+
+  const inboxEmailForLog = (log: LogRow) =>
+    log.gmail_accounts?.[0]?.email ?? "—";
 
   return (
     <>
@@ -106,7 +112,8 @@ export default async function DashboardPage() {
             </div>
 
             <p className="muted" style={{ marginTop: 10 }}>
-              Run triage on demand, connect additional inboxes, and review drafts in Gmail.
+              Run triage on demand, connect additional inboxes, and review drafts
+              in Gmail.
             </p>
 
             <div
@@ -196,7 +203,9 @@ export default async function DashboardPage() {
             {logs.length === 0 ? (
               <div className="account" style={{ marginTop: 12 }}>
                 <strong>No logs yet</strong>
-                <div className="muted">Run triage after connecting an inbox.</div>
+                <div className="muted">
+                  Run triage after connecting an inbox.
+                </div>
               </div>
             ) : (
               <div className="feed">
@@ -206,7 +215,7 @@ export default async function DashboardPage() {
                       <div className="item-meta">
                         <span>{new Date(log.created_at).toLocaleString()}</span>
                         <span>•</span>
-                        <span>{log.gmail_accounts?.email ?? "—"}</span>
+                        <span>{inboxEmailForLog(log)}</span>
                         <span className={priorityClass(log.priority)}>
                           {(log.priority || "normal").toLowerCase()}
                         </span>
