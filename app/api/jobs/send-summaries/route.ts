@@ -1,18 +1,26 @@
 // app/api/jobs/send-summaries/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "../../../../lib/supabase-server";
-import {
-  getOAuthClientForAccount,
-  gmailFromAuth,
-  sendEmail,
-} from "../../../../lib/gmail";
+import { supabaseServer } from "@/lib/supabase-server";
+import { getOAuthClientForAccount, gmailFromAuth, sendEmail } from "@/lib/gmail";
 
 export const runtime = "nodejs";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
+// Who receives summary emails (optional). If not set, summary goes to each connected inbox email.
+const SUMMARY_TO = process.env.SUMMARY_TO || "";
+
 // Look back 24 hours for the summary window
 const LOOKBACK_HOURS = 24;
+
+// Subject used for summary emails (we’ll exclude these from activity)
+const SUMMARY_SUBJECT = "AI Email Summary (Drafts Created)";
+
+// Filter out any activity rows that are themselves the summary email (avoid feedback loops)
+function isSummaryEmailLog(log: any) {
+  const subject = String(log?.subject || "").toLowerCase();
+  return subject.includes("ai email summary");
+}
 
 export async function GET(req: NextRequest) {
   if (!CRON_SECRET) {
@@ -34,7 +42,7 @@ export async function GET(req: NextRequest) {
   try {
     const { data: accounts, error: accountsError } = await supabaseServer
       .from("gmail_accounts")
-      .select("*");
+      .select("id,email");
 
     if (accountsError) throw accountsError;
     if (!accounts || accounts.length === 0) {
@@ -47,61 +55,56 @@ export async function GET(req: NextRequest) {
     let summariesSent = 0;
 
     for (const account of accounts) {
-      // Fetch logs for this account in the last window
       const { data: logs, error: logsError } = await supabaseServer
         .from("email_logs")
-        .select("*")
+        .select("created_at, subject, from_address, summary, draft_created")
         .eq("gmail_account_id", account.id)
         .gte("created_at", sinceIso)
         .order("created_at", { ascending: true });
 
       if (logsError) {
-        console.error(
-          `Error fetching logs for account ${account.id}:`,
-          logsError
-        );
+        console.error(`Error fetching logs for account ${account.id}:`, logsError);
         continue;
       }
 
-      if (!logs || logs.length === 0) {
-        // Nothing to summarize for this account
-        continue;
-      }
+      if (!logs || logs.length === 0) continue;
 
-      // Build a warm, structured summary email in your style
-      const timeframeLine = `This summary covers approximately the last ${LOOKBACK_HOURS} hours.`;
+      // Remove any summary emails from the logs (prevents showing summaries in summaries)
+      const filteredLogs = logs.filter((l) => !isSummaryEmailLog(l));
 
+      if (filteredLogs.length === 0) continue;
+
+      // ✅ Only send summary if at least one draft was created
+      const drafts = filteredLogs.filter((l) => l.draft_created === true);
+      if (drafts.length === 0) continue;
+
+      const to = SUMMARY_TO || account.email || "";
+      if (!to) continue;
+
+      // Build a concise, professional, structured summary (no labels)
       const lines: string[] = [];
 
-      lines.push(`Dear ${account.email},`);
+      lines.push("Dear Team,");
       lines.push("");
       lines.push(
-        "Thank you for taking a moment to review your AI email assistant's activity."
+        "Thank you for taking a moment to review the inbox activity. Below is a summary of messages that resulted in a draft reply being created."
       );
-      lines.push(timeframeLine);
-      lines.push("");
       lines.push(
-        "Below is a summary of the emails that were reviewed, along with the actions the assistant took or suggested. Please look over the details and adjust or approve any drafts directly in your Gmail account."
+        `This summary covers approximately the last ${LOOKBACK_HOURS} hours (since ${since.toLocaleString()}).`
       );
       lines.push("");
       lines.push("------------------------------------------------------------");
       lines.push("");
 
-      logs.forEach((log, idx) => {
-        const index = idx + 1;
+      drafts.forEach((log, idx) => {
+        const n = idx + 1;
         const subject = log.subject || "(no subject)";
         const from = log.from_address || "(unknown sender)";
-        const priority = log.priority || "normal";
-        const needsResponse = log.needs_response ? "Yes" : "No";
-        const draftStatus = log.draft_created ? "Draft created" : "No draft";
         const summary = log.summary || "(no summary provided)";
 
-        lines.push(`Email ${index}:`);
+        lines.push(`Email ${n}:`);
         lines.push(`  Subject: ${subject}`);
         lines.push(`  From: ${from}`);
-        lines.push(`  Priority: ${priority}`);
-        lines.push(`  Needs Response: ${needsResponse}`);
-        lines.push(`  Draft Status: ${draftStatus}`);
         lines.push("  Summary:");
         lines.push(`    ${summary}`);
         lines.push("");
@@ -109,23 +112,10 @@ export async function GET(req: NextRequest) {
         lines.push("");
       });
 
-      lines.push(
-        "Next steps for you (when you have a moment):"
-      );
+      lines.push("Next steps (when you have a moment):");
       lines.push("");
-      lines.push(
-        "* Review any drafts that were created in your Gmail Drafts folder."
-      );
-      lines.push(
-        "* Edit, approve, and send those messages as needed so they reflect anything specific you would like to add."
-      );
-      lines.push(
-        "* If a message was marked as not needing a response but you would like to follow up anyway, you can still compose a reply as usual."
-      );
-      lines.push("");
-      lines.push(
-        "Thank you again for your patience and trust as this assistant helps you stay on top of your inbox."
-      );
+      lines.push("* Please review the drafts in Gmail → Drafts.");
+      lines.push("* Edit as needed, then approve and send.");
       lines.push("");
       lines.push("All the best,");
       lines.push("Your AI Gmail Assistant");
@@ -135,16 +125,11 @@ export async function GET(req: NextRequest) {
       const { oauth2Client } = await getOAuthClientForAccount(account.id);
       const gmail = gmailFromAuth(oauth2Client);
 
-      const subject = `Your AI email summary (last ${LOOKBACK_HOURS} hours)`;
-
       try {
-        await sendEmail(gmail, account.email, subject, body);
+        await sendEmail(gmail, to, SUMMARY_SUBJECT, body);
         summariesSent += 1;
       } catch (err) {
-        console.error(
-          `Error sending summary email for account ${account.id}:`,
-          err
-        );
+        console.error(`Error sending summary email for account ${account.id}:`, err);
       }
     }
 
