@@ -1,192 +1,395 @@
-// app/page.tsx
+// app/dashboard/page.tsx
+import { supabaseServer } from "@/lib/supabase-server";
 import Link from "next/link";
+import { TriageButton } from "./TriageButton";
+import { RuleButtons } from "./RuleButtons";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+type GmailAccountRow = {
+  id: string;
+  email: string | null;
+  updated_at: string | null;
+};
+
+type LogRow = {
+  id: string;
+  created_at: string;
+  gmail_account_id: string;
+  subject: string | null;
+  from_address: string | null;
+  summary: string | null;
+  needs_response: boolean | null;
+  priority: string | null;
+  draft_created: boolean | null;
+  gmail_accounts?: { email: string | null } | null;
+};
+
+async function getAccounts(): Promise<GmailAccountRow[]> {
+  const { data, error } = await supabaseServer
+    .from("gmail_accounts")
+    .select("id, email, updated_at")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error loading gmail_accounts", error);
+    return [];
+  }
+  return (data || []) as GmailAccountRow[];
+}
+
+async function getLogs(): Promise<LogRow[]> {
+  const { data, error } = await supabaseServer
+    .from("email_logs")
+    .select(
+      "id, created_at, gmail_account_id, subject, from_address, summary, needs_response, priority, draft_created, gmail_accounts(email)"
+    )
+    .order("created_at", { ascending: false })
+    .limit(120);
+
+  if (error) {
+    console.error("Error loading logs", error);
+    return [];
+  }
+  return data as LogRow[];
+}
+
+function priorityPill(p?: string | null) {
+  const v = (p || "normal").toLowerCase();
+  const base = "inline-flex items-center rounded-full px-2 py-1 text-xs ring-1";
+
+  if (v === "high") return `${base} bg-red-500/15 text-red-200 ring-red-500/30`;
+  if (v === "low") return `${base} bg-white/5 text-white/70 ring-white/10`;
+  return `${base} bg-amber-500/15 text-amber-200 ring-amber-500/30`;
+}
+
+export default async function DashboardPage() {
+  const [accounts, logs] = await Promise.all([getAccounts(), getLogs()]);
+
+  const stats = {
+    connected: accounts.length,
+    logs: logs.length,
+    needs: logs.filter((l) => l.needs_response).length,
+    drafts: logs.filter((l) => l.draft_created).length,
+    high: logs.filter((l) => (l.priority || "normal") === "high").length,
+  };
+
   return (
     <main className="min-h-screen bg-[#050712] text-white">
-      {/* Subtle background */}
+      {/* background */}
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_circle_at_20%_20%,rgba(99,102,241,0.18),transparent_45%),radial-gradient(900px_circle_at_80%_30%,rgba(16,185,129,0.12),transparent_45%),radial-gradient(700px_circle_at_50%_80%,rgba(236,72,153,0.10),transparent_50%)]" />
-        <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(to_right,rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,.08)_1px,transparent_1px)] bg-[size:64px_64px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(1100px_circle_at_20%_10%,rgba(99,102,241,0.16),transparent_42%),radial-gradient(900px_circle_at_80%_20%,rgba(16,185,129,0.10),transparent_45%),radial-gradient(700px_circle_at_50%_85%,rgba(236,72,153,0.08),transparent_52%)]" />
+        <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(to_right,rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,.08)_1px,transparent_1px)] bg-[size:72px_72px]" />
       </div>
 
-      {/* Top nav */}
-      <header className="mx-auto max-w-6xl px-6 py-6">
-        <nav className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-white/10 ring-1 ring-white/10 grid place-items-center">
-              <span className="text-sm font-semibold">AI</span>
-            </div>
-            <div className="leading-tight">
-              <div className="text-sm font-semibold">AI Gmail Agent</div>
-              <div className="text-xs text-white/60">
-                Drafts • Labels • Rules • Summaries
+      {/* Sticky header */}
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-black/35 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-6 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-white/10 ring-1 ring-white/10 grid place-items-center">
+                <span className="text-sm font-semibold">AI</span>
+              </div>
+              <div>
+                <div className="text-sm font-semibold">Dashboard</div>
+                <div className="text-xs text-white/60">
+                  Lookback: last 14 days • Drafts only • Deduped
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/10"
-            >
-              Dashboard
-            </Link>
-            <a
-              href="/api/auth/google"
-              className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
-            >
-              Connect Gmail
-            </a>
-          </div>
-        </nav>
-      </header>
-
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 pt-8 pb-10">
-        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
-              <span className="h-2 w-2 rounded-full bg-emerald-400/80" />
-              Runs on your Gmail + Supabase + AI
-            </div>
-
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight md:text-5xl">
-              Triage every inbox. Draft replies in your voice. Stay in control.
-            </h1>
-
-            <p className="mt-4 max-w-xl text-base text-white/70">
-              This agent reads inbox messages, applies labels, creates drafts when appropriate,
-              and sends a summary only when drafts are created — so you’re never spammed.
-            </p>
-
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/10"
+              >
+                Home
+              </Link>
               <a
                 href="/api/auth/google"
-                className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+                className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
               >
-                Connect a Gmail account
+                + Connect Gmail
               </a>
-
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-xl bg-white/5 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/10"
-              >
-                Open dashboard
-              </Link>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <Feature
-                title="Drafts, not auto-send"
-                desc="The agent creates drafts only — you review and send."
-              />
-              <Feature
-                title="No duplicates"
-                desc="DB + logic prevents re-drafting the same email."
-              />
-              <Feature
-                title="Rules you control"
-                desc="Skip or no-draft future messages by sender/subject."
-              />
+              <TriageButton />
             </div>
           </div>
+        </div>
+      </header>
 
-          {/* Right panel */}
-          <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10">
-            <div className="rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        {/* Top grid */}
+        <section className="grid gap-4 lg:grid-cols-12">
+          {/* Quick actions */}
+          <div className="lg:col-span-5">
+            <Card>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold">How it works</div>
+                  <div className="text-sm font-semibold">Quick actions</div>
                   <div className="mt-1 text-xs text-white/60">
-                    Simple workflow designed for real inboxes.
+                    Connect inboxes and run triage on demand.
                   </div>
                 </div>
-                <div className="rounded-xl bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
-                  Last 14 days
+                <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
+                  Live
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <Action
+                  title="Connect another inbox"
+                  desc="Add additional Gmail accounts."
+                  href="/api/auth/google"
+                />
+                <Action
+                  title="Open Gmail Drafts"
+                  desc="Review drafts and send."
+                  href="https://mail.google.com/mail/u/0/#drafts"
+                  external
+                />
+              </div>
+
+              <div className="mt-5 rounded-2xl bg-black/30 p-4 ring-1 ring-white/10">
+                <div className="text-xs text-white/60">Behavior</div>
+                <ul className="mt-2 space-y-1 text-sm text-white/75">
+                  <li>• Creates a draft only when it believes a response is needed.</li>
+                  <li>• Summary email is sent only if drafts were created.</li>
+                  <li>• Use rules to “skip” or “no-draft” future emails.</li>
+                </ul>
+              </div>
+            </Card>
+          </div>
+
+          {/* Stats */}
+          <div className="lg:col-span-7">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Stat title="Connected inboxes" value={stats.connected} />
+              <Stat title="Logs shown" value={stats.logs} />
+              <Stat title="Drafts created" value={stats.drafts} />
+              <Stat title="Needs response" value={stats.needs} />
+              <Stat title="High priority" value={stats.high} />
+              <Stat title="Last triage" value="—" hint="Shown in logs below" />
+            </div>
+          </div>
+        </section>
+
+        {/* Connected accounts */}
+        <section className="mt-6">
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">Connected Gmail accounts</div>
+                <div className="mt-1 text-xs text-white/60">
+                  The agent can triage all connected inboxes.
                 </div>
               </div>
-
-              <ol className="mt-5 space-y-3 text-sm text-white/75">
-                <Step n="1" t="Connect one or more Gmail accounts" />
-                <Step n="2" t="Run triage (or schedule via cron)" />
-                <Step n="3" t="Agent labels messages + drafts replies" />
-                <Step n="4" t="You review drafts and approve/send" />
-                <Step n="5" t="Summary email sent only when drafts were created" />
-              </ol>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Badge>Multi-inbox</Badge>
-                <Badge>HTML signature</Badge>
-                <Badge>Rules (skip / no-draft)</Badge>
-                <Badge>Supabase logs</Badge>
+              <div className="text-xs text-white/60">
+                {accounts.length} connected
               </div>
             </div>
 
-            <div className="mt-4 rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
-              <div className="text-sm font-semibold">Recommended next step</div>
-              <p className="mt-2 text-sm text-white/70">
-                Connect your primary inbox first, run triage once, and verify labels + drafts.
-                Then connect additional inboxes.
-              </p>
-              <div className="mt-4 flex gap-3">
-                <a
-                  href="/api/auth/google"
-                  className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
-                >
-                  Connect Gmail
-                </a>
-                <Link
-                  href="/dashboard"
-                  className="rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/10 hover:bg-white/10"
-                >
-                  View logs
-                </Link>
+            {accounts.length === 0 ? (
+              <div className="mt-5 rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
+                <div className="text-sm font-semibold">No inboxes connected</div>
+                <p className="mt-1 text-sm text-white/70">
+                  Connect your primary Gmail account to begin triage.
+                </p>
+                <div className="mt-4">
+                  <a
+                    href="/api/auth/google"
+                    className="inline-flex rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+                  >
+                    Connect Gmail
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {accounts.map((a) => (
+                  <div
+                    key={a.id}
+                    className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {a.email ?? "—"}
+                        </div>
+                        <div className="mt-1 text-xs text-white/60">
+                          Updated:{" "}
+                          {a.updated_at
+                            ? new Date(a.updated_at).toLocaleString()
+                            : "—"}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
+                        Connected
+                      </div>
+                    </div>
+                    <div className="mt-3 text-[11px] text-white/45 break-all">
+                      {a.id}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </section>
+
+        {/* Activity feed */}
+        <section className="mt-6">
+          <Card>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">Recent activity</div>
+                <div className="mt-1 text-xs text-white/60">
+                  Latest 120 triaged emails across inboxes.
+                </div>
+              </div>
+              <div className="text-xs text-white/60">
+                Showing {logs.length}
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Footer */}
-      <footer className="mx-auto max-w-6xl px-6 pb-10">
-        <div className="flex flex-col gap-2 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
-          <div>© {new Date().getFullYear()} AI Gmail Agent</div>
-          <div>
-            Drafts only • Summary only on drafts • Lookback: 14 days
-          </div>
+            {logs.length === 0 ? (
+              <div className="mt-5 rounded-2xl bg-black/30 p-5 ring-1 ring-white/10">
+                <div className="text-sm font-semibold">No logs yet</div>
+                <p className="mt-1 text-sm text-white/70">
+                  Run triage after connecting at least one inbox.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="rounded-2xl bg-black/30 p-4 ring-1 ring-white/10"
+                  >
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-white/60">
+                            {new Date(log.created_at).toLocaleString()}
+                          </span>
+                          <span className="text-xs text-white/60">•</span>
+                          <span className="text-xs text-white/70">
+                            {log.gmail_accounts?.email ?? "—"}
+                          </span>
+                          <span className={priorityPill(log.priority)}>
+                            {(log.priority || "normal").toLowerCase()}
+                          </span>
+                          {log.draft_created ? (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-1 text-xs text-emerald-200 ring-1 ring-emerald-500/30">
+                              Draft created
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-1 text-xs text-white/70 ring-1 ring-white/10">
+                              No draft
+                            </span>
+                          )}
+                          {log.needs_response ? (
+                            <span className="inline-flex items-center rounded-full bg-indigo-500/15 px-2 py-1 text-xs text-indigo-200 ring-1 ring-indigo-500/30">
+                              Needs response
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-white/5 px-2 py-1 text-xs text-white/70 ring-1 ring-white/10">
+                              No response needed
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-2 text-base font-semibold truncate">
+                          {log.subject ?? "(no subject)"}
+                        </div>
+                        <div className="mt-1 text-sm text-white/75 truncate">
+                          <span className="text-white/60">From: </span>
+                          {log.from_address ?? "—"}
+                        </div>
+
+                        {!!log.summary && (
+                          <div className="mt-3 text-sm text-white/70 whitespace-pre-wrap">
+                            {log.summary}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="shrink-0">
+                        <div className="text-xs text-white/60 mb-2">
+                          Teach agent (future)
+                        </div>
+                        <RuleButtons
+                          gmailAccountId={log.gmail_account_id}
+                          fromAddress={log.from_address ?? ""}
+                          subject={log.subject ?? ""}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </section>
+
+        <div className="mt-10 text-xs text-white/45">
+          Tip: Use “No-draft sender/subject” for newsletters or senders you want to label/triage but never draft replies to.
         </div>
-      </footer>
+      </div>
     </main>
   );
 }
 
-function Feature({ title, desc }: { title: string; desc: string }) {
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-      <div className="text-sm font-semibold">{title}</div>
-      <div className="mt-1 text-xs text-white/65">{desc}</div>
+    <div className="rounded-3xl bg-white/5 p-6 ring-1 ring-white/10">
+      {children}
     </div>
   );
 }
 
-function Step({ n, t }: { n: string; t: string }) {
+function Stat({
+  title,
+  value,
+  hint,
+}: {
+  title: string;
+  value: string | number;
+  hint?: string;
+}) {
   return (
-    <li className="flex items-start gap-3">
-      <div className="mt-0.5 grid h-6 w-6 place-items-center rounded-lg bg-white/5 text-xs text-white/80 ring-1 ring-white/10">
-        {n}
-      </div>
-      <div className="leading-relaxed">{t}</div>
-    </li>
+    <div className="rounded-3xl bg-white/5 p-5 ring-1 ring-white/10">
+      <div className="text-xs text-white/60">{title}</div>
+      <div className="mt-2 text-2xl font-semibold">{value}</div>
+      {hint && <div className="mt-1 text-xs text-white/45">{hint}</div>}
+    </div>
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+function Action({
+  title,
+  desc,
+  href,
+  external,
+}: {
+  title: string;
+  desc: string;
+  href: string;
+  external?: boolean;
+}) {
+  const cls =
+    "block rounded-2xl bg-black/30 p-4 ring-1 ring-white/10 hover:bg-black/35 transition";
+  if (external) {
+    return (
+      <a className={cls} href={href} target="_blank" rel="noreferrer">
+        <div className="text-sm font-semibold">{title}</div>
+        <div className="mt-1 text-xs text-white/60">{desc}</div>
+      </a>
+    );
+  }
   return (
-    <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10">
-      {children}
-    </span>
+    <Link className={cls} href={href}>
+      <div className="text-sm font-semibold">{title}</div>
+      <div className="mt-1 text-xs text-white/60">{desc}</div>
+    </Link>
   );
 }
