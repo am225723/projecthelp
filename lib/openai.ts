@@ -70,7 +70,7 @@ ${params.body}
   `.trim();
 
   const completion = await client.chat.completions.create({
-    model: "sonar-pro", // or "sonar" if you prefer the base model
+    model: "sonar", // or "sonar" if you prefer the base model
     messages: [
       { role: "system", content: system },
       { role: "user", content: userContent },
