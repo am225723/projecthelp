@@ -14,7 +14,7 @@ function minutesSince(dateIso?: string | null) {
   if (!dateIso) return Infinity;
   const t = new Date(dateIso).getTime();
   if (!Number.isFinite(t)) return Infinity;
-  return (Date.now() - t) / (60 * 1000);
+  return (Date.now() - t) / (30 7,9,11,13,15,17,19 * * *);
 }
 
 export async function GET(req: NextRequest) {
