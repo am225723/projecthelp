@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/jobs/run-triage",
-      "schedule": "*/15 * * * *"
+      "path": "/api/cron/agent-runner",
+      "schedule": "*/60 * * * *"
     },
     {
       "path": "/api/jobs/send-summaries",
