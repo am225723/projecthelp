@@ -242,10 +242,10 @@ export async function GET(req: NextRequest) {
         if (triage.needs_response && triage.draft_reply?.trim()) {
           // Append signature (HTML) — keep draft as plaintext + HTML signature block
           // NOTE: Gmail drafts support raw RFC822; simplest is to include signature HTML as-is at bottom.
-          const replyText = `${triage.draft_reply}\n\n${signatureHtml || ""}`;
+          const replyText = triage.draft_reply;
 
           try {
-            await createDraftReply(gmail, full, replyText);
+            await createDraftReply(gmail, full, replyText, signatureHtml);
             draftCreated = true;
             draftsCreated += 1;
           } catch (e) {

@@ -327,6 +327,12 @@ export async function sendEmail(
 
 // Return raw HTML Gmail signature (tables/buttons/etc)
 export async function getGmailSignature(oauthClient: any) {
+  // Prefer a code-controlled signature so you don't need to edit Gmail settings.
+  // Set CUSTOM_SIGNATURE_HTML in your deployment environment.
+  if (process.env.CUSTOM_SIGNATURE_HTML?.trim()) {
+    return process.env.CUSTOM_SIGNATURE_HTML.trim();
+  }
+
   const gmail = google.gmail({ version: "v1", auth: oauthClient });
 
   const res = await gmail.users.settings.sendAs.list({
