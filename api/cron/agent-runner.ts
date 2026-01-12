@@ -1,11 +1,10 @@
-// app/api/cron/agent-runner/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase-server";
-
-export const runtime = "nodejs";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { createClient } from "@supabase/supabase-js";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function minutesSince(dateIso?: string | null) {
   if (!dateIso) return Infinity;
@@ -25,7 +24,7 @@ function parseHHMMToMinutes(value?: string | null): number | null {
   return hh * 60 + mm;
 }
 
-function getLocalNowParts(timeZone: string) {
+function getLocalNowMinutes(timeZone: string): number | null {
   try {
     const dtf = new Intl.DateTimeFormat("en-US", {
       timeZone,
@@ -37,7 +36,7 @@ function getLocalNowParts(timeZone: string) {
     const hour = Number(parts.find((p) => p.type === "hour")?.value);
     const minute = Number(parts.find((p) => p.type === "minute")?.value);
     if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-    return { hour, minute, nowMin: hour * 60 + minute };
+    return hour * 60 + minute;
   } catch {
     return null;
   }
@@ -55,85 +54,65 @@ function formatLocalTime(mins: number) {
 
 function nextRunPreview(args: {
   timezone: string;
-  windowStartMin: number | null;
-  windowEndMin: number | null;
+  startMin: number | null;
+  endMin: number | null;
   intervalMinutes: number;
   lastRunAtIso?: string | null;
 }) {
-  const { timezone, windowStartMin, windowEndMin, intervalMinutes, lastRunAtIso } = args;
+  const { timezone, startMin, endMin, intervalMinutes, lastRunAtIso } = args;
 
-  const local = getLocalNowParts(timezone);
-  if (!local || windowStartMin == null || windowEndMin == null) {
-    // if we can't compute, return a safe hint
-    const mins = minutesSince(lastRunAtIso ?? null);
+  const nowMin = getLocalNowMinutes(timezone);
+
+  // If we can't compute, give a safe relative estimate
+  const mins = minutesSince(lastRunAtIso ?? null);
+  if (nowMin == null || startMin == null || endMin == null) {
     if (mins >= intervalMinutes) return "Now";
     return `In ~${Math.ceil(intervalMinutes - mins)} min`;
   }
 
-  // Same-day windows only
-  if (local.nowMin < windowStartMin) {
-    return `Today ${formatLocalTime(windowStartMin)} (${timezone})`;
-  }
-  if (local.nowMin > windowEndMin) {
-    return `Tomorrow ${formatLocalTime(windowStartMin)} (${timezone})`;
-  }
+  if (nowMin < startMin) return `Today ${formatLocalTime(startMin)} (${timezone})`;
+  if (nowMin > endMin) return `Tomorrow ${formatLocalTime(startMin)} (${timezone})`;
 
-  const mins = minutesSince(lastRunAtIso ?? null);
   if (mins >= intervalMinutes) return `Now (${timezone})`;
   return `In ~${Math.ceil(intervalMinutes - mins)} min (${timezone})`;
 }
 
-export async function GET(req: NextRequest) {
-  if (!CRON_SECRET) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  }
-  if (!APP_URL) {
-    return NextResponse.json({ error: "NEXT_PUBLIC_APP_URL not configured" }, { status: 500 });
-  }
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice("Bearer ".length)
-    : "";
-
-  if (token !== CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!CRON_SECRET) return res.status(500).json({ error: "CRON_SECRET not configured" });
+  if (!APP_URL) return res.status(500).json({ error: "NEXT_PUBLIC_APP_URL not configured" });
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: "Supabase env vars not configured" });
   }
 
-  // Load accounts
-  const { data: accounts, error: aErr } = await supabaseServer
+  const authHeader = (req.headers["authorization"] as string) || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : "";
+  if (token !== CRON_SECRET) return res.status(401).json({ error: "Unauthorized" });
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const { data: accounts, error: aErr } = await supabase
     .from("gmail_accounts")
     .select("id,email");
 
-  if (aErr) return NextResponse.json({ error: aErr.message }, { status: 500 });
-  if (!accounts?.length) {
-    return NextResponse.json({ ok: true, accounts: 0, ran: 0, skipped: 0 });
-  }
+  if (aErr) return res.status(500).json({ error: aErr.message });
+  if (!accounts?.length) return res.json({ ok: true, accounts: 0, ran: 0, skipped: 0 });
 
-  // Load settings
-  const { data: settings, error: sErr } = await supabaseServer
+  const { data: settings, error: sErr } = await supabase
     .from("agent_settings")
     .select(
-      [
-        "gmail_account_id",
-        "enabled",
-        "run_mode",
-        "period_minutes",
-        "interval_minutes",
-        "timezone",
-        "window_start",
-        "window_end",
-        "last_run_at",
-      ].join(",")
+      "gmail_account_id,enabled,run_mode,period_minutes,interval_minutes,timezone,window_start,window_end,last_run_at"
     );
 
-  if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 });
+  if (sErr) return res.status(500).json({ error: sErr.message });
 
   const settingsMap = new Map<string, any>();
   (settings || []).forEach((s: any) => settingsMap.set(s.gmail_account_id, s));
 
   let ran = 0;
   let skipped = 0;
+
   const reasons: Record<string, number> = {
     disabled: 0,
     instant_mode: 0,
@@ -143,7 +122,7 @@ export async function GET(req: NextRequest) {
     triage_ok: 0,
   };
 
-  const next_run_preview: Array<{ gmail_account_id: string; email: string; next_run: string }> = [];
+  const preview: Array<{ gmail_account_id: string; email: string; next_run: string }> = [];
 
   for (const acc of accounts) {
     const s = settingsMap.get(acc.id);
@@ -154,61 +133,61 @@ export async function GET(req: NextRequest) {
     const lastRunAt = s?.last_run_at ?? null;
 
     const timezone = s?.timezone ?? "America/New_York";
-    const windowStartStr = s?.window_start ?? "07:00:00";
-    const windowEndStr = s?.window_end ?? "21:00:00";
+    const startMin = parseHHMMToMinutes(s?.window_start ?? "07:00:00");
+    const endMin = parseHHMMToMinutes(s?.window_end ?? "21:00:00");
 
-    const startMin = parseHHMMToMinutes(windowStartStr);
-    const endMin = parseHHMMToMinutes(windowEndStr);
-    const local = getLocalNowParts(timezone);
-
-    const windowOk =
-      local && startMin != null && endMin != null ? local.nowMin >= startMin && local.nowMin <= endMin : true;
-
-    next_run_preview.push({
+    preview.push({
       gmail_account_id: acc.id,
       email: acc.email,
       next_run: nextRunPreview({
         timezone,
-        windowStartMin: startMin,
-        windowEndMin: endMin,
+        startMin,
+        endMin,
         intervalMinutes,
         lastRunAtIso: lastRunAt,
       }),
     });
 
     if (!enabled) {
-      skipped += 1;
-      reasons.disabled += 1;
+      skipped++;
+      reasons.disabled++;
+      continue;
+    }
+    if (runMode === "instant") {
+      skipped++;
+      reasons.instant_mode++;
       continue;
     }
 
-    if (runMode === "instant") {
-      skipped += 1;
-      reasons.instant_mode += 1;
-      continue;
-    }
+    // window check (same-day only)
+    const nowMin = getLocalNowMinutes(timezone);
+    const windowOk =
+      nowMin != null && startMin != null && endMin != null
+        ? nowMin >= startMin && nowMin <= endMin
+        : true;
 
     if (!windowOk) {
-      skipped += 1;
-      reasons.not_in_window += 1;
+      skipped++;
+      reasons.not_in_window++;
       continue;
     }
 
+    // due check
     const mins = minutesSince(lastRunAt);
     if (mins < intervalMinutes) {
-      skipped += 1;
-      reasons.not_due += 1;
+      skipped++;
+      reasons.not_due++;
       continue;
     }
 
-    // Create run history row
+    // history: start
     const startedAt = new Date();
-    const { data: runRow } = await supabaseServer
+    const { data: runRow } = await supabase
       .from("agent_run_history")
       .insert({
         gmail_account_id: acc.id,
         triggered_by: "cron",
-        status: "skipped", // will update
+        status: "skipped",
         started_at: startedAt.toISOString(),
         lookback_days: 14,
       })
@@ -224,38 +203,32 @@ export async function GET(req: NextRequest) {
     let errorText: string | null = null;
 
     try {
-      const res = await fetch(url, {
+      const r = await fetch(url, {
         method: "GET",
         headers: { Authorization: `Bearer ${CRON_SECRET}` },
         cache: "no-store",
       });
-
-      httpStatus = res.status;
-      ok = res.ok;
-
-      if (!ok) {
-        errorText = await res.text().catch(() => "unknown error");
-        console.error("Cron triage failed:", acc.email, res.status, errorText);
-      }
+      httpStatus = r.status;
+      ok = r.ok;
+      if (!ok) errorText = await r.text().catch(() => "unknown error");
     } catch (e: any) {
       ok = false;
       errorText = e?.message || String(e);
-      console.error("Cron triage fetch error:", acc.email, errorText);
     }
 
     const finishedAt = new Date();
     const durationMs = finishedAt.getTime() - startedAt.getTime();
 
     if (ok) {
-      ran += 1;
-      reasons.triage_ok += 1;
+      ran++;
+      reasons.triage_ok++;
 
-      await supabaseServer
+      await supabase
         .from("agent_settings")
         .upsert({ gmail_account_id: acc.id, last_run_at: finishedAt.toISOString() }, { onConflict: "gmail_account_id" });
 
       if (runId) {
-        await supabaseServer
+        await supabase
           .from("agent_run_history")
           .update({
             status: "success",
@@ -267,11 +240,11 @@ export async function GET(req: NextRequest) {
           .eq("id", runId);
       }
     } else {
-      skipped += 1;
-      reasons.triage_failed += 1;
+      skipped++;
+      reasons.triage_failed++;
 
       if (runId) {
-        await supabaseServer
+        await supabase
           .from("agent_run_history")
           .update({
             status: "failed",
@@ -285,12 +258,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({
+  return res.json({
     ok: true,
     accounts: accounts.length,
     ran,
     skipped,
     reasons,
-    next_run_preview,
+    next_run_preview: preview.slice(0, 100),
   });
 }
