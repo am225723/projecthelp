@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -77,7 +77,7 @@ function nextRunPreview(args: {
   return `In ~${Math.ceil(intervalMinutes - mins)} min (${timezone})`;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   if (!CRON_SECRET) return res.status(500).json({ error: "CRON_SECRET not configured" });
