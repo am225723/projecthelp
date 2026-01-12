@@ -47,15 +47,7 @@ export function RuleButtons({
         <button
           onClick={() => createRule("skip_sender", fromAddress)}
           disabled={!fromAddress || saving !== null}
-          style={{
-            padding: "8px 10px",
-            borderRadius: 10,
-            border: "1px solid rgba(148,163,184,0.25)",
-            background: "rgba(255,255,255,0.04)",
-            color: "rgba(226,232,240,0.95)",
-            cursor: saving ? "not-allowed" : "pointer",
-            fontSize: "0.85rem",
-          }}
+          className="btn btn-ghost btn-sm"
           title="Future: do not draft replies to this sender"
         >
           {saving === "sender" ? "Saving…" : "Skip sender"}
@@ -64,26 +56,14 @@ export function RuleButtons({
         <button
           onClick={() => createRule("skip_subject", subject)}
           disabled={!subject || saving !== null}
-          style={{
-            padding: "8px 10px",
-            borderRadius: 10,
-            border: "1px solid rgba(148,163,184,0.25)",
-            background: "rgba(255,255,255,0.04)",
-            color: "rgba(226,232,240,0.95)",
-            cursor: saving ? "not-allowed" : "pointer",
-            fontSize: "0.85rem",
-          }}
+          className="btn btn-ghost btn-sm"
           title="Future: do not draft replies for this subject"
         >
           {saving === "subject" ? "Saving…" : "Skip subject"}
         </button>
       </div>
 
-      {done ? (
-        <div style={{ color: "rgba(226,232,240,0.8)", fontSize: "0.8rem" }}>
-          {done}
-        </div>
-      ) : null}
+      {done ? <div className="table-muted" style={{ fontSize: "0.8rem" }}>{done}</div> : null}
     </div>
   );
 }

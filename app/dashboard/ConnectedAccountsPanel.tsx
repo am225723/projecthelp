@@ -68,41 +68,28 @@ export default function ConnectedAccountsPanel({ accounts }: { accounts: Connect
   }
 
   return (
-    <section
-      style={{
-        border: "1px solid rgba(148,163,184,0.18)",
-        borderRadius: 16,
-        background: "rgba(2,6,23,0.85)",
-        padding: 16,
-        boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
-        marginBottom: 16,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+    <section className="panel">
+      <div className="panel-header-row">
         <div>
-          <h2 style={{ margin: 0, fontSize: "1.1rem", color: "rgba(226,232,240,0.95)" }}>
-            Connected Gmail Accounts
-          </h2>
-          <p style={{ margin: "6px 0 0", color: "rgba(148,163,184,0.95)", fontSize: "0.9rem" }}>
+          <h2>Connected Gmail Accounts</h2>
+          <p className="panel-subtitle">
             Each Gmail account is connected via OAuth once. Choose how the agent should run per inbox.
           </p>
         </div>
 
-        {toast ? (
-          <div style={{ color: "rgba(226,232,240,0.9)", fontSize: "0.9rem" }}>{toast}</div>
-        ) : null}
+        {toast ? <div className="panel-subtitle">{toast}</div> : null}
       </div>
 
-      <div style={{ marginTop: 14, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+      <div className="table-wrap">
+        <table className="dashboard-table">
           <thead>
-            <tr style={{ borderBottom: "1px solid rgba(148,163,184,0.18)" }}>
-              <th align="left" style={{ padding: "10px 8px", color: "rgba(226,232,240,0.9)" }}>Inbox</th>
-              <th align="left" style={{ padding: "10px 8px", color: "rgba(226,232,240,0.9)" }}>Enabled</th>
-              <th align="left" style={{ padding: "10px 8px", color: "rgba(226,232,240,0.9)" }}>Mode</th>
-              <th align="left" style={{ padding: "10px 8px", color: "rgba(226,232,240,0.9)" }}>Frequency</th>
-              <th align="left" style={{ padding: "10px 8px", color: "rgba(226,232,240,0.9)" }}>Last run</th>
-              <th align="left" style={{ padding: "10px 8px", color: "rgba(226,232,240,0.9)" }}>Actions</th>
+            <tr>
+              <th>Inbox</th>
+              <th>Enabled</th>
+              <th>Mode</th>
+              <th>Frequency</th>
+              <th>Last run</th>
+              <th>Actions</th>
             </tr>
           </thead>
 
@@ -113,13 +100,11 @@ export default function ConnectedAccountsPanel({ accounts }: { accounts: Connect
               const periodMinutes = a.settings?.period_minutes ?? 60;
 
               return (
-                <tr key={a.id} style={{ borderBottom: "1px solid rgba(148,163,184,0.10)" }}>
-                  <td style={{ padding: "12px 8px", color: "rgba(226,232,240,0.92)", whiteSpace: "nowrap" }}>
-                    {a.email || "—"}
-                  </td>
+                <tr key={a.id}>
+                  <td style={{ whiteSpace: "nowrap" }}>{a.email || "—"}</td>
 
-                  <td style={{ padding: "12px 8px" }}>
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "rgba(226,232,240,0.85)" }}>
+                  <td>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                       <input
                         type="checkbox"
                         checked={enabled}
@@ -130,36 +115,24 @@ export default function ConnectedAccountsPanel({ accounts }: { accounts: Connect
                     </label>
                   </td>
 
-                  <td style={{ padding: "12px 8px" }}>
+                  <td>
                     <select
                       value={runMode}
                       onChange={(e) => save(a.id, { runMode: e.target.value as RunMode })}
                       disabled={savingId === a.id}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        background: "rgba(255,255,255,0.04)",
-                        border: "1px solid rgba(148,163,184,0.20)",
-                        color: "rgba(226,232,240,0.95)",
-                      }}
+                      className="select"
                     >
                       <option value="periodic">Periodic</option>
                       <option value="instant">Instant (requires Gmail push)</option>
                     </select>
                   </td>
 
-                  <td style={{ padding: "12px 8px" }}>
+                  <td>
                     <select
                       value={periodMinutes}
                       onChange={(e) => save(a.id, { periodMinutes: Number(e.target.value) })}
                       disabled={savingId === a.id || runMode !== "periodic"}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        background: runMode === "periodic" ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)",
-                        border: "1px solid rgba(148,163,184,0.20)",
-                        color: "rgba(226,232,240,0.95)",
-                      }}
+                      className="select"
                     >
                       {PERIOD_OPTIONS.map((o) => (
                         <option key={o.minutes} value={o.minutes}>
@@ -169,22 +142,14 @@ export default function ConnectedAccountsPanel({ accounts }: { accounts: Connect
                     </select>
                   </td>
 
-                  <td style={{ padding: "12px 8px", color: "rgba(148,163,184,0.95)", whiteSpace: "nowrap" }}>
+                  <td className="table-muted" style={{ whiteSpace: "nowrap" }}>
                     {formatWhen(a.settings?.last_run_at ?? null)}
                   </td>
 
-                  <td style={{ padding: "12px 8px" }}>
+                  <td>
                     <a
                       href="/api/auth/google"
-                      style={{
-                        display: "inline-block",
-                        padding: "8px 10px",
-                        borderRadius: 10,
-                        border: "1px solid rgba(148,163,184,0.20)",
-                        background: "rgba(255,255,255,0.04)",
-                        color: "rgba(226,232,240,0.95)",
-                        textDecoration: "none",
-                      }}
+                      className="btn btn-ghost btn-sm"
                       title="Connect another Gmail account"
                     >
                       + Connect another
@@ -197,7 +162,7 @@ export default function ConnectedAccountsPanel({ accounts }: { accounts: Connect
         </table>
       </div>
 
-      <div style={{ marginTop: 12, color: "rgba(148,163,184,0.9)", fontSize: "0.85rem" }}>
+      <div className="panel-subtitle" style={{ marginTop: 12 }}>
         Periodic mode is controlled by a Vercel cron that runs every 5 minutes and only triggers triage when each inbox is due.
       </div>
     </section>

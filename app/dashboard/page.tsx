@@ -18,6 +18,13 @@ function isSummaryEmail(subject?: string | null, from?: string | null) {
   return subjectMatch || fromMatch;
 }
 
+function formatWhen(iso?: string | null) {
+  if (!iso) return "—";
+  const t = new Date(iso);
+  if (!Number.isFinite(t.getTime())) return "—";
+  return t.toLocaleString();
+}
+
 export default async function DashboardPage() {
   // Connected accounts + settings
   const { data: accounts, error: aErr } = await supabaseServer
@@ -74,17 +81,45 @@ export default async function DashboardPage() {
       };
     });
 
-  return (
-    <main style={{ padding: "2rem", maxWidth: 1200, margin: "0 auto" }}>
-      <header style={{ marginBottom: "1rem" }}>
-        <h1 style={{ fontSize: "1.9rem", margin: 0 }}>Dashboard</h1>
-        <p style={{ color: "#9ca3af", marginTop: 8 }}>
-          Manage connected inboxes, scheduling, and review triage activity.
-        </p>
-      </header>
+  const totalDrafts = rows.filter((r) => r.draft_created).length;
+  const totalHigh = rows.filter((r) => r.priority === "high").length;
+  const lastRunAt = (settings || [])
+    .map((s: any) => s.last_run_at)
+    .filter(Boolean)
+    .sort()
+    .reverse()[0];
 
-      <ConnectedAccountsPanel accounts={connected} />
-      <ActivityClient logs={rows} />
+  return (
+    <main className="dashboard-shell">
+      <div className="container">
+        <section className="dashboard-hero">
+          <div>
+            <h1>Dashboard</h1>
+            <p>Manage connected inboxes, scheduling, and review triage activity.</p>
+          </div>
+          <div className="dashboard-stats">
+            <div className="stat-card">
+              <span>Connected inboxes</span>
+              <strong>{connected.length}</strong>
+            </div>
+            <div className="stat-card">
+              <span>Drafts created</span>
+              <strong>{totalDrafts}</strong>
+            </div>
+            <div className="stat-card">
+              <span>High priority flagged</span>
+              <strong>{totalHigh}</strong>
+            </div>
+            <div className="stat-card">
+              <span>Last triage run</span>
+              <strong>{formatWhen(lastRunAt ?? null)}</strong>
+            </div>
+          </div>
+        </section>
+
+        <ConnectedAccountsPanel accounts={connected} />
+        <ActivityClient logs={rows} />
+      </div>
     </main>
   );
 }
