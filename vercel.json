@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/agent-runner",
-      "schedule": "*/60 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/jobs/send-summaries",
