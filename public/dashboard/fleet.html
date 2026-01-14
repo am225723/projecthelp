@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Fleet - Stitch Agent</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Background Pattern -->
+        <div class="grid-bg" style="position: absolute; inset: 0; z-index: 0; height: 400px; pointer-events: none;"></div>
+        
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div>
+                    <h1 class="header-title">Agent Fleet</h1>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem;">
+                        <span class="status-dot active"></span>
+                        <p style="font-size: 0.625rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">5 Agents Configured</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-icon btn-ghost">
+                        <span class="material-symbols-outlined">add</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main style="position: relative; z-index: 10;">
+            <!-- Fleet Stats -->
+            <section style="margin-top: 1.5rem; padding: 0 1.5rem;">
+                <div class="glass-card" style="padding: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center;">
+                        <div>
+                            <p style="font-size: 2rem; font-weight: 700; color: var(--primary);">3</p>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Active</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 2rem; font-weight: 700; color: var(--status-warning);">1</p>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Paused</p>
+                        </div>
+                        <div>
+                            <p style="font-size: 2rem; font-weight: 700; color: var(--text-muted);">1</p>
+                            <p style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">Inactive</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Agent Categories -->
+            <section style="margin-top: 2rem; padding: 0 1.5rem;">
+                <h2 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 1rem;">Email Agents</h2>
+                <div id="agents-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+                    <!-- Agents will be rendered by JavaScript -->
+                </div>
+            </section>
+            
+            <!-- Add New Agent -->
+            <section style="margin-top: 2rem; padding: 0 1.5rem; padding-bottom: 8rem;">
+                <h2 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 1rem;">Available Agents</h2>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div class="glass-card" style="padding: 1rem; display: flex; align-items: center; gap: 1rem; cursor: pointer;">
+                        <div class="icon-wrapper md" style="background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2);">
+                            <span class="material-symbols-outlined" style="color: var(--status-success);">schedule</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Scheduler Agent</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Automate meeting scheduling</p>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: var(--text-muted);">add_circle</span>
+                    </div>
+                    
+                    <div class="glass-card" style="padding: 1rem; display: flex; align-items: center; gap: 1rem; cursor: pointer;">
+                        <div class="icon-wrapper md" style="background-color: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2);">
+                            <span class="material-symbols-outlined" style="color: var(--status-warning);">translate</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Translation Agent</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Auto-translate messages</p>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: var(--text-muted);">add_circle</span>
+                    </div>
+                    
+                    <div class="glass-card" style="padding: 1rem; display: flex; align-items: center; gap: 1rem; cursor: pointer;">
+                        <div class="icon-wrapper md" style="background-color: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2);">
+                            <span class="material-symbols-outlined" style="color: var(--accent-purple);">analytics</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Analytics Agent</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Track email metrics</p>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: var(--text-muted);">add_circle</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <div class="bottom-nav-content">
+                <a href="index.html" class="nav-item">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span class="nav-label">Control</span>
+                </a>
+                <a href="activity.html" class="nav-item">
+                    <span class="material-symbols-outlined">bolt</span>
+                    <span class="nav-label">Activity</span>
+                </a>
+                <a href="fleet.html" class="nav-item active">
+                    <span class="material-symbols-outlined">account_tree</span>
+                    <span class="nav-label">Fleet</span>
+                </a>
+                <a href="settings.html" class="nav-item">
+                    <span class="material-symbols-outlined">settings_suggest</span>
+                    <span class="nav-label">Settings</span>
+                </a>
+            </div>
+            <div style="position: absolute; bottom: 0.5rem; left: 50%; transform: translateX(-50%);">
+                <div style="width: 8rem; height: 0.25rem; background-color: rgba(255, 255, 255, 0.2); border-radius: 9999px;"></div>
+            </div>
+        </nav>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
