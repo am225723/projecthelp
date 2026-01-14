@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draft Review - Stitch Agent</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .ios-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body style="background-color: rgb(0, 0, 0); font-family: 'Inter', sans-serif; color: rgb(15, 23, 42);">
+    <div style="max-width: 26.875rem; margin-left: auto; margin-right: auto; min-height: 100vh; display: flex; flex-direction: column; position: relative; overflow-x: hidden; border-left: 1px solid rgb(226, 232, 240); border-right: 1px solid rgb(226, 232, 240); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+        <!-- Header -->
+        <header style="position: sticky; top: 0; z-index: 50; background-color: rgba(255, 255, 255, 0.8); ios-blur; display: flex; align-items: center; padding: 1rem; justify-content: space-between; border-bottom: 1px solid transparent;">
+            <div style="width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: flex-start; cursor: pointer; transition: opacity 0.2s;">
+                <a href="index.html" style="text-decoration: none; color: inherit;">
+                    <span class="material-symbols-outlined" style="color: rgb(15, 23, 42); font-weight: 300;">close</span>
+                </a>
+            </div>
+            <h2 style="color: rgb(15, 23, 42); font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.025em; flex: 1; text-align: center;">Unified Draft Review</h2>
+            <div style="width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: flex-end;">
+                <button style="display: flex; align-items: center; justify-content: center; color: var(--primary); transition: colors 0.2s; background: none; border: none; cursor: pointer;">
+                    <span class="material-symbols-outlined" style="font-weight: 300;">more_horiz</span>
+                </button>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main style="flex: 1; overflow-y: auto; padding-bottom: 11rem; padding-left: 1rem; padding-right: 1rem; padding-top: 0.5rem;">
+            <!-- Thread Summary -->
+            <section style="margin-top: 1rem; margin-bottom: 1.5rem;">
+                <div style="background-color: rgb(24, 24, 27); border-radius: 0.625rem; padding: 1.25rem; border: 1px solid rgb(39, 39, 42); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                        <span class="material-symbols-outlined" style="color: rgb(113, 113, 122); font-size: 1.125rem;">history</span>
+                        <h3 style="color: rgb(113, 113, 122); font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Thread Summary</h3>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.375rem;">
+                        <p style="color: white; font-size: 1.0625rem; font-weight: 600; line-height: 1.25;">Quick Update: Q3 Report & Sync</p>
+                        <p style="color: rgb(161, 161, 170); font-size: 0.9375rem; line-height: 1.4;">
+                            Client is requesting the final Q3 report files and suggested a catch-up meeting for next Tuesday morning.
+                        </p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Tone Selection -->
+            <section style="margin-bottom: 1.5rem;">
+                <div style="display: flex; background-color: rgb(44, 44, 46); padding: 0.25rem; border-radius: 0.625rem; width: 100%; height: 2.75rem; align-items: center;">
+                    <button class="tone-btn active" data-tone="professional" style="flex: 1; height: 2.25rem; display: flex; align-items: center; justify-content: center; font-size: 0.8125rem; font-weight: 600; border-radius: 0.4375rem; background-color: rgb(99, 99, 102); color: white; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; border: none; cursor: pointer;">
+                        Professional
+                    </button>
+                    <button class="tone-btn" data-tone="casual" style="flex: 1; height: 2.25rem; display: flex; align-items: center; justify-content: center; font-size: 0.8125rem; font-weight: 500; color: rgb(161, 161, 170); transition: all 0.2s; border: none; cursor: pointer;">
+                        Casual
+                    </button>
+                    <button class="tone-btn" data-tone="short" style="flex: 1; height: 2.25rem; display: flex; align-items: center; justify-content: center; font-size: 0.8125rem; font-weight: 500; color: rgb(161, 161, 170); transition: all 0.2s; border: none; cursor: pointer;">
+                        Short
+                    </button>
+                </div>
+            </section>
+            
+            <!-- AI Suggested Response -->
+            <section>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; padding-left: 0.25rem;">
+                    <h3 style="color: rgb(113, 113, 122); font-size: 0.8125rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">AI Suggested Response</h3>
+                    <div style="display: flex; align-items: center; gap: 0.375rem;">
+                        <span style="width: 0.375rem; height: 0.375rem; border-radius: 50%; background-color: var(--primary); animation: pulse 2s infinite;"></span>
+                        <span style="font-size: 0.6875rem; color: var(--primary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Ready</span>
+                    </div>
+                </div>
+                
+                <div style="background-color: rgb(24, 24, 27); border-radius: 0.625rem; border: 1px solid rgb(39, 39, 42); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); padding: 1.25rem; min-height: 18.75rem;">
+                    <div style="color: rgb(226, 232, 240); font-size: 1.0625rem; line-height: 1.6; letter-spacing: -0.025em; display: flex; flex-direction: column; gap: 1rem; font-weight: 400;" id="draft-content">
+                        <p>Hi Sarah,</p>
+                        <p>I hope you're having a productive week.</p>
+                        <p>I've attached the latest Q3 report for your review. Regarding our sync, Tuesday at 10:00 AM works perfectly for a quick catch-up.</p>
+                        <p>Please let me know if that fits your schedule, or if another time works better for you.</p>
+                        <p>Best regards,</p>
+                        <p>Alex</p>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1rem; display: flex; align-items: center; gap: 0.625rem; padding-left: 0.5rem;">
+                    <div style="width: 1.5rem; height: 1.5rem; border-radius: 50%; background-color: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center;">
+                        <span class="material-symbols-outlined" style="color: var(--primary); font-size: 0.875rem;">auto_awesome</span>
+                    </div>
+                    <p style="font-size: 0.8125rem; color: rgb(161, 161, 170); line-height: 1.2;">
+                        Optimized for <span style="color: white; font-weight: 500;">Professional</span> tone and clarity.
+                    </p>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Footer Actions -->
+        <footer style="position: fixed; bottom: 0; left: 0; right: 0; max-width: 26.875rem; margin-left: auto; margin-right: auto; padding-left: 1.25rem; padding-right: 1.25rem; padding-bottom: 2rem; padding-top: 1rem; background: linear-gradient(to top, rgb(0, 0, 0), rgb(0, 0, 0), transparent); z-index: 40;">
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <button style="width: 100%; background-color: var(--primary); transition: colors 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 3.25rem; border-radius: 0.875rem; font-weight: 700; font-size: 1.0625rem; transition: all 0.2s; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2); border: none; cursor: pointer;">
+                    <span class="material-symbols-outlined" style="font-size: 1.25rem; font-variation-settings: 'FILL' 1;">send</span>
+                    Send Now
+                </button>
+                <button style="width: 100%; background-color: transparent; border: 1px solid rgb(203, 213, 225); color: rgb(15, 23, 42); display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 3.25rem; border-radius: 0.875rem; font-weight: 600; font-size: 1.0625rem; transition: all 0.2s; border: none; cursor: pointer;">
+                    <span class="material-symbols-outlined" style="font-size: 1.25rem;">edit</span>
+                    Manual Edit
+                </button>
+            </div>
+            <div style="margin-top: 1.5rem; margin-left: auto; margin-right: auto; width: 8rem; height: 0.25rem; background-color: rgb(203, 213, 225); border-radius: 9999px;"></div>
+        </footer>
+    </div>
+    
+    <script>
+        // Tone switching functionality
+        const toneBtns = document.querySelectorAll('.tone-btn');
+        const draftContent = document.getElementById('draft-content');
+        
+        const drafts = {
+            professional: `
+                <p>Hi Sarah,</p>
+                <p>I hope you're having a productive week.</p>
+                <p>I've attached the latest Q3 report for your review. Regarding our sync, Tuesday at 10:00 AM works perfectly for a quick catch-up.</p>
+                <p>Please let me know if that fits your schedule, or if another time works better for you.</p>
+                <p>Best regards,</p>
+                <p>Alex</p>
+            `,
+            casual: `
+                <p>Hey Sarah!</p>
+                <p>Hope your week's going well!</p>
+                <p>Attached the Q3 report you asked for. For the sync, Tuesday 10 AM works great for me.</p>
+                <p>Let me know if that works for you or if you'd prefer another time!</p>
+                <p>Cheers,</p>
+                <p>Alex</p>
+            `,
+            short: `
+                <p>Hi Sarah,</p>
+                <p>Q3 report attached. Tuesday 10 AM works for the sync.</p>
+                <p>Let me know if you need a different time.</p>
+                <p>Best,<br>Alex</p>
+            `
+        };
+        
+        toneBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Update button states
+                toneBtns.forEach(b => {
+                    b.classList.remove('active');
+                    b.style.backgroundColor = 'transparent';
+                    b.style.color = 'rgb(161, 161, 170)';
+                    b.style.boxShadow = 'none';
+                });
+                
+                this.classList.add('active');
+                this.style.backgroundColor = 'rgb(99, 99, 102)';
+                this.style.color = 'white';
+                this.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
+                
+                // Update draft content
+                const tone = this.dataset.tone;
+                draftContent.innerHTML = drafts[tone];
+                
+                // Update optimization message
+                const optimizationMsg = document.querySelector('footer').previousElementSibling.querySelector('p span');
+                optimizationMsg.textContent = tone.charAt(0).toUpperCase() + tone.slice(1);
+            });
+        });
+    </script>
+</body>
+</html>

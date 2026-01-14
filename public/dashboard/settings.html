@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Stitch Agent</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Background Pattern -->
+        <div class="grid-bg" style="position: absolute; inset: 0; z-index: 0; height: 400px; pointer-events: none;"></div>
+        
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div>
+                    <h1 class="header-title">Settings</h1>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Configure your dashboard</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-icon btn-ghost">
+                        <span class="material-symbols-outlined">help</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content -->
+        <main style="position: relative; z-index: 10; padding: 1.5rem; padding-bottom: 8rem;">
+            <!-- Connected Services -->
+            <section style="margin-bottom: 2rem;">
+                <h2 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 1rem;">Connected Services</h2>
+                
+                <div class="glass-card" style="padding: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0;">
+                        <div class="icon-wrapper md" style="background-color: rgba(30, 41, 59, 0.8);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M20 4H4C2.9 4 2.01 4.9 2.01 6L2 18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 18H4V8L12 13L20 8V18ZM12 11L4 6H20L12 11Z" fill="#EA4335"/>
+                            </svg>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Gmail</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">alex.design@gmail.com</p>
+                        </div>
+                        <span class="badge badge-success">Connected</span>
+                    </div>
+                </div>
+                
+                <button class="btn btn-secondary" style="width: 100%; margin-top: 0.75rem;">
+                    <span class="material-symbols-outlined">add</span>
+                    Connect New Service
+                </button>
+            </section>
+            
+            <!-- Automation Settings -->
+            <section style="margin-bottom: 2rem;">
+                <h2 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 1rem;">Automation</h2>
+                
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div class="glass-card" style="padding: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Auto-draft Replies</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Generate drafts automatically</p>
+                        </div>
+                        <label style="position: relative; display: inline-flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" checked class="sr-only" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;">
+                            <div style="width: 2.5rem; height: 1.25rem; background-color: var(--primary); border-radius: 9999px; position: relative; transition: all 0.2s;">
+                                <div style="position: absolute; top: 2px; left: 2px; background-color: white; width: 1rem; height: 1rem; border-radius: 9999px; transition: transform 0.2s; transform: translateX(1.25rem);"></div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <div class="glass-card" style="padding: 1rem; display: flex; align-items: center; justify-content: between;">
+                        <div>
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Smart Filtering</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Skip low-priority emails</p>
+                        </div>
+                        <label style="position: relative; display: inline-flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" checked class="sr-only" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;">
+                            <div style="width: 2.5rem; height: 1.25rem; background-color: var(--primary); border-radius: 9999px; position: relative; transition: all 0.2s;">
+                                <div style="position: absolute; top: 2px; left: 2px; background-color: white; width: 1rem; height: 1rem; border-radius: 9999px; transition: transform 0.2s; transform: translateX(1.25rem);"></div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <div class="glass-card" style="padding: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Daily Summary</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Receive daily email digest</p>
+                        </div>
+                        <label style="position: relative; display: inline-flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" class="sr-only" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;">
+                            <div style="width: 2.5rem; height: 1.25rem; background-color: #475569; border-radius: 9999px; position: relative; transition: all 0.2s;">
+                                <div style="position: absolute; top: 2px; left: 2px; background-color: white; width: 1rem; height: 1rem; border-radius: 9999px; transition: transform 0.2s; transform: translateX(0);"></div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Appearance -->
+            <section style="margin-bottom: 2rem;">
+                <h2 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 1rem;">Appearance</h2>
+                
+                <div class="glass-card" style="padding: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0;">
+                        <span class="material-symbols-outlined" style="color: var(--primary);">dark_mode</span>
+                        <div style="flex: 1;">
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Dark Mode</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Always on</p>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: var(--text-muted);">check</span>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Account -->
+            <section style="margin-bottom: 2rem;">
+                <h2 style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 1rem;">Account</h2>
+                
+                <div class="glass-card" style="padding: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0;">
+                        <div style="width: 3rem; height: 3rem; border-radius: 50%; overflow: hidden;">
+                            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" alt="User" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div style="flex: 1;">
+                            <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary);">Alex Design</h3>
+                            <p style="font-size: 0.75rem; color: var(--text-muted);">Pro Plan</p>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: var(--text-muted);">chevron_right</span>
+                    </div>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+                    <button class="btn btn-secondary" style="width: 100%;">
+                        <span class="material-symbols-outlined">payment</span>
+                        Manage Subscription
+                    </button>
+                    <button class="btn btn-ghost" style="width: 100%; color: var(--status-error);">
+                        <span class="material-symbols-outlined">logout</span>
+                        Sign Out
+                    </button>
+                </div>
+            </section>
+            
+            <!-- Version Info -->
+            <div style="text-align: center; padding: 2rem 0;">
+                <p style="font-size: 0.75rem; color: var(--text-muted);">Stitch Agent v1.0.0</p>
+                <p style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.25rem;">© 2024 Stitch AI</p>
+            </div>
+        </main>
+        
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <div class="bottom-nav-content">
+                <a href="index.html" class="nav-item">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span class="nav-label">Control</span>
+                </a>
+                <a href="activity.html" class="nav-item">
+                    <span class="material-symbols-outlined">bolt</span>
+                    <span class="nav-label">Activity</span>
+                </a>
+                <a href="fleet.html" class="nav-item">
+                    <span class="material-symbols-outlined">account_tree</span>
+                    <span class="nav-label">Fleet</span>
+                </a>
+                <a href="settings.html" class="nav-item active">
+                    <span class="material-symbols-outlined">settings_suggest</span>
+                    <span class="nav-label">Settings</span>
+                </a>
+            </div>
+            <div style="position: absolute; bottom: 0.5rem; left: 50%; transform: translateX(-50%);">
+                <div style="width: 8rem; height: 0.25rem; background-color: rgba(255, 255, 255, 0.2); border-radius: 9999px;"></div>
+            </div>
+        </nav>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>

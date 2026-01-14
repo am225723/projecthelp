@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rule Builder - Stitch Agent</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        body {
+            background-color: #020408;
+            color: #E2E8F0;
+        }
+        
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        .glass-panel {
+            background: rgba(19, 22, 31, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-width: 1px;
+        }
+    </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body class="antialiased min-h-screen pb-32">
+    <!-- Header -->
+    <header style="position: fixed; top: 0; inset-x: 0; z-index: 50; background-color: rgba(2, 4, 8, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-top: 3rem; padding-bottom: 1rem; padding-left: 1.5rem; padding-right: 1.5rem; transition: all 0.3s;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+            <a href="index.html" style="width: 2.5rem; height: 2.5rem; margin-left: -0.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: rgba(148, 163, 184, 1); transition: colors 0.2s; text-decoration: none;">
+                <span class="material-symbols-outlined">arrow_back_ios_new</span>
+            </a>
+            <h1 style="font-size: 1.125rem; font-weight: 600; letter-spacing: -0.025em; color: white;">Rule Builder</h1>
+            <button style="font-size: 0.875rem; font-weight: 600; color: var(--primary); transition: colors 0.2s; background: none; border: none; cursor: pointer;">Save</button>
+        </div>
+        <div style="position: relative;">
+            <div style="position: absolute; inset-y: 0; left: 1rem; display: flex; align-items: center; pointer-events: none;">
+                <span class="material-symbols-outlined" style="color: rgba(100, 116, 139, 1); transition: colors 0.2s; font-size: 1.25rem;">edit</span>
+            </div>
+            <input type="text" placeholder="Name your rule (e.g., VIP Client Filter)" style="width: 100%; background-color: rgba(19, 22, 31, 1); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1rem; padding-top: 0.875rem; padding-bottom: 0.875rem; padding-left: 2.75rem; padding-right: 1rem; font-size: 0.875rem; color: white; placeholder-color: rgba(100, 116, 139, 1); transition: all 0.2s; outline: none; font-family: 'Inter', sans-serif;">
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main style="padding-left: 1.5rem; padding-right: 1.5rem; padding-top: 11rem; display: flex; flex-direction: column; gap: 0;">
+        <!-- IF Section -->
+        <section style="position: relative; z-index: 10;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; padding-left: 0.25rem;">
+                <div class="status-badge" style="border-color: rgba(59, 130, 246, 0.3); background-color: rgba(59, 130, 246, 0.1); color: rgb(96, 165, 250); box-shadow: 0 0 20px -5px rgba(59, 130, 246, 0.5);">
+                    <span style="width: 0.375rem; height: 0.375rem; border-radius: 50%; background-color: rgb(96, 165, 250); animation: pulse 2s infinite;"></span>
+                    IF
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 0.75rem; font-weight: 500; color: rgba(100, 116, 139, 1); text-transform: uppercase; letter-spacing: 0.05em;">Conditions</span>
+                </div>
+            </div>
+            
+            <div style="background-color: rgba(19, 22, 31, 1); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.5rem; padding: 0.25rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; position: relative;">
+                <div style="position: absolute; top: 0; inset-x: 0; height: 1px; background: linear-gradient(to right, transparent, rgba(59, 130, 246, 0.5), transparent); opacity: 0.5;"></div>
+                <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1.5rem;">
+                    <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                        <div style="width: 3rem; height: 3rem; border-radius: 1rem; background: linear-gradient(to bottom right, rgba(37, 99, 235, 0.2), rgba(30, 58, 138, 0.2)); border: 1px solid rgba(59, 130, 246, 0.2); display: flex; align-items: center; justify-content: center; color: rgb(96, 165, 250); box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.2);">
+                            <span class="material-symbols-outlined" style="font-size: 1.5rem;">mail</span>
+                        </div>
+                        <div style="flex: 1; padding-top: 0.25rem;">
+                            <p style="font-size: 0.625rem; font-weight: 700; color: rgb(96, 165, 250); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.125rem;">Trigger</p>
+                            <h3 style="font-size: 1rem; font-weight: 500; color: white;">Incoming Email</h3>
+                        </div>
+                        <button style="color: rgba(100, 116, 139, 1); transition: colors 0.2s; padding: 0.25rem; background: none; border: none; cursor: pointer;">
+                            <span class="material-symbols-outlined">more_horiz</span>
+                        </button>
+                    </div>
+                    
+                    <div id="conditions-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <!-- Conditions will be rendered by JavaScript -->
+                    </div>
+                    
+                    <button onclick="RuleBuilder.addCondition()" style="width: 100%; padding-top: 0.75rem; padding-bottom: 0.75rem; border: 1px dashed rgba(51, 65, 85, 1); border-radius: 0.75rem; color: rgba(100, 116, 139, 1); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 0.5rem; background: none; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size: 1rem;">add</span>
+                        Add Condition
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Connector Line -->
+        <div style="height: 3rem; margin-left: 3.875rem; width: 0.0625rem; background: linear-gradient(to bottom, rgba(59, 130, 246, 0.5), rgba(16, 185, 129, 0.5)); position: relative; z-index: 0;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0.375rem; height: 0.375rem; border-radius: 50%; background-color: rgba(71, 85, 105, 1);"></div>
+        </div>
+        
+        <!-- THEN Section -->
+        <section style="position: relative; z-index: 10; padding-bottom: 2rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; padding-left: 0.25rem;">
+                <div class="status-badge" style="border-color: rgba(16, 185, 129, 0.3); background-color: rgba(16, 185, 129, 0.1); color: rgb(52, 211, 153); box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.5);">
+                    <span style="width: 0.375rem; height: 0.375rem; border-radius: 50%; background-color: rgb(52, 211, 153); animation: pulse 2s infinite;"></span>
+                    THEN
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 0.75rem; font-weight: 500; color: rgba(100, 116, 139, 1); text-transform: uppercase; letter-spacing: 0.05em;">Actions</span>
+                </div>
+            </div>
+            
+            <div id="actions-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Actions will be rendered by JavaScript -->
+            </div>
+            
+            <button onclick="RuleBuilder.addAction()" style="width: 100%; margin-top: 1rem; padding-top: 1rem; padding-bottom: 1rem; border-radius: 1rem; background-color: rgba(19, 22, 31, 0.5); border: 1px solid rgba(255, 255, 255, 0.05); color: rgba(148, 163, 184, 1); font-weight: 500; font-size: 0.875rem; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: none; cursor: pointer;">
+                <span class="material-symbols-outlined">add_circle</span>
+                Add another action
+            </button>
+        </section>
+    </main>
+    
+    <!-- Bottom Actions -->
+    <div style="position: fixed; bottom: 0; inset-x: 0; padding: 1.5rem; z-index: 50; pointer-events: none;">
+        <div style="position: absolute; inset-x: 0; bottom: 0; height: 8rem; background: linear-gradient(to top, rgba(2, 4, 8, 1), rgba(2, 4, 8, 0.9), transparent); z-index: -1;"></div>
+        <div style="max-width: 28rem; margin-left: auto; margin-right: auto; pointer-events: auto;">
+            <div style="display: flex; gap: 0.75rem;">
+                <button style="flex: 1; height: 3.5rem; background-color: rgb(37, 99, 235); transition: colors 0.2s; color: white; font-weight: 700; font-size: 1rem; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2); transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; border: none; cursor: pointer;">
+                    <span class="material-symbols-outlined">check</span>
+                    Create Rule
+                </button>
+                <button class="glass-panel" style="height: 3.5rem; width: 3.5rem; transition: colors 0.2s; border-radius: 1rem; display: flex; align-items: center; justify-content: center; color: rgba(203, 213, 225, 1); border: none; cursor: pointer;">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Validation Badge -->
+    <div style="position: fixed; bottom: 7rem; right: 1.5rem; z-index: 40; pointer-events: none;">
+        <div class="glass-panel" style="padding: 0.5rem 1rem; border-radius: 9999px; display: flex; align-items: center; gap: 0.625rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border-color: rgba(16, 185, 129, 0.2);">
+            <div style="width: 0.5rem; height: 0.5rem; border-radius: 50%; background-color: rgb(16, 185, 129); box-shadow: 0 0 10px rgba(16, 185, 129, 0.5); animation: pulse 2s infinite;"></div>
+            <span style="font-size: 0.625rem; font-weight: 700; color: rgb(52, 211, 153); text-transform: uppercase; letter-spacing: 0.1em;">Logic Validated</span>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
