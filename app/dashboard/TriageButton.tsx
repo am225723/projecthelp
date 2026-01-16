@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { runTriageAction } from "@/app/actions";
 
 export function TriageButton() {
   const [loading, setLoading] = useState(false);
@@ -11,26 +12,14 @@ export function TriageButton() {
     setStatus(null);
 
     try {
-      const res = await fetch("/api/jobs/run-triage", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`,
-        },
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setStatus(data?.error ? `Error: ${data.error}` : `Error: ${res.status}`);
-        return;
-      }
+      const data = await runTriageAction();
 
       setStatus(
         `Completed: processed ${data.processed ?? 0} email(s) across ${data.accounts ?? 0} inbox(es).`
       );
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setStatus("Unexpected error running triage. Check server logs.");
+      setStatus(e.message || "Unexpected error running triage.");
     } finally {
       setLoading(false);
     }
